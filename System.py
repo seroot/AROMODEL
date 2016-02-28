@@ -6,6 +6,7 @@ from copy import deepcopy
 import os
 import subprocess
 import time
+import Configure
 # Class defining an MD system for simulation with LAMMPS
 
 
@@ -203,10 +204,8 @@ class System(object):
         subprocess.call(["ssh", "seroot@comet.sdsc.edu", "mkdir /oasis/scratch/comet/seroot/temp_project/Aromodel/%s" % self.Name])
         
         # Set up input file
-        In_Temp = "in.init_temp"
+        In_Temp = Configure.Template_Path + "in.init_temp"
         In_File = "in.init_%s" % self.Name
-        c2c = "scp %s seroot@comet.sdsc.edu:/oasis/scratch/comet/seroot/temp_project/Aromodel/%s"
-        c2m = "scp seroot@comet.sdsc.edu:/oasis/scratch/comet/seroot/temp_project/Aromodel/%s/%s ./"
         with open(In_Temp) as f:
             template = f.read()
         s = template.format(System_Name = self.Name)
@@ -214,7 +213,7 @@ class System(object):
             f.write(s)
         
         # Set up submit script
-        sub_temp = "sub_Lammps"
+        sub_temp = Configure.Template_Path + "sub_Lammps"
         submit = "sub_%s" % self.Name
         with open(sub_temp) as f:
             template = f.read()
@@ -222,16 +221,20 @@ class System(object):
         with open(submit,'w') as f:
             f.write(s)
 
-        # Copy over to Comet
-        os.system( c2c % (submit, self.Name))
-        os.system( c2c % (In_File, self.Name))
-        os.system( c2c % (self.Data_File, self.Name))
-        #subprocess.call(["ssh", "seroot@comet.sdsc.edu", "sbatch /oasis/scratch/comet/seroot/temp_project/Aromodel/%s/%s" % (self.Name, submit)])
         File_Out = 'restart.Condensed_%s' % self.Name
+        # Copy over to Comet
+        os.system( Configure.c2c % (submit, self.Name))
+        os.system( Configure.c2c % (In_File, self.Name))
+        os.system( Configure.c2c % (self.Data_File, self.Name))
+        os.system( Configure.c2l % (self.Name, File_Out))
+        try:
+            File = open(File_Out,'r')
+        except:
+            subprocess.call(["ssh", Configure.Comet_Login, Configure.SBATCH % (self.Name, submit)])
         Finished = False
         i = 0
         while not Finished:
-            os.system( c2m % (self.Name, File_Out))
+            os.system( Configure.c2l % (self.Name, File_Out))
             try:
                 File = open(File_Out,'r')
                 Finished = True
@@ -239,8 +242,8 @@ class System(object):
                 print "Sleeping process", i, "miniutes"
                 time.sleep(600)
                 i += 10
-
-
+        os.system( 'rm %s' % File_Out)
+        return
 
 
 

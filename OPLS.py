@@ -8,6 +8,7 @@ import Angle
 import Dihedral
 import Improper
 import Molecule
+import Configure
 
 
 def Assign_OPLS(Molecule, ChelpG = True):
@@ -21,7 +22,8 @@ def Assign_OPLS(Molecule, ChelpG = True):
         print Atom_Obj.Element, Atom_Obj.OPLS_Type, Atom_Obj.OPLS_Class
     
     # Open up OPLS FILE
-    OPLS_FILE = open('oplsaa.prm.txt', 'r')
+    OPLS_Path = Configure.Template_Path + "oplsaa.prm.txt"
+    OPLS_FILE = open(OPLS_Path, 'r')
     File_Lines = OPLS_FILE.readlines()
 
     # Initialize Parameters Lists

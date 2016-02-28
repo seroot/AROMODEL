@@ -12,6 +12,7 @@ import Atom
 import Bond
 import Angle
 import Dihedral
+import Configure
 
 
 class Molecule(object):
@@ -27,6 +28,7 @@ class Molecule(object):
         Improper_List[Num_Impropers] = list of Improper objects
         COM = Center of Mass
         MOL_ID = ID Number for molecule
+        unConverged = Flag for bypassing Orca convergence (Default = False)
     """
 
     def __init__(self, File_Name):
@@ -44,6 +46,7 @@ class Molecule(object):
         self.COM = np.zeros(3,float)
         self.Mol_ID = 0
         self.Missing_Dihedrals = 0
+        self.unConverged = False # Unconverged Orca Optimization
         
         print "Setting up molecule"
         print "Molecule Name:", self.Name
@@ -81,32 +84,43 @@ class Molecule(object):
             File.write('*')
             File.close()
             
-            # Run subprocess on local machine
-            #os.system('mkdir Orca')
-            #os.system('mv %s ./Orca' % File_Name)
-            #os.chdir('./Orca')
-            #File_Out = self.Name + ".out"
-            #os.system('orca %s > %s' %(File_Name, File_Out)) # Run Orca Job
+            """
+            #Run subprocess on local machine
+            os.system('mkdir Orca')
+            os.system('mv %s ./Orca' % File_Name)
+            os.chdir('./Orca')
+            File_Out = self.Name + ".out"
+            os.system('orca %s > %s' %(File_Name, File_Out)) # Run Orca Job
+            """
+            
             File_Out = self.Name + ".out"
             print "Running Orca Geometry Optimization on Comet"
-            subprocess.call(["ssh", "seroot@comet.sdsc.edu", "mkdir /oasis/scratch/comet/seroot/temp_project/Aromodel/%s" % self.Name])
-            c2c = "scp %s seroot@comet.sdsc.edu:/oasis/scratch/comet/seroot/temp_project/Aromodel/%s"
-            c2m = "scp seroot@comet.sdsc.edu:/oasis/scratch/comet/seroot/temp_project/Aromodel/%s/%s ./"
-            subtemp = "sub_temp"
-            submit = "submit_script"
-
+            cmd = "mkdir" + Configure.Comet_Path % self.Name
+            subprocess.call(["ssh", Configure.Comet_Login, cmd])
+            subtemp = Configure.Template_Path + "sub_orca_temp"
+            submit = "submit_orca"
+            Path = Configure.Comet_Path % self.Name
+            # Write submit script
             with open(subtemp) as f:
                 template = f.read()
-            s = template.format(name= self.Name)
+            s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name = self.Name )
             with open(submit ,"w") as f:
                 f.write(s)
-            os.system( c2c % (submit, self.Name))
-            os.system( c2c % (File_Name, self.Name))
-            subprocess.call(["ssh", "seroot@comet.sdsc.edu", "sbatch /oasis/scratch/comet/seroot/temp_project/Aromodel/%s/%s" % (self.Name, submit)])
+            
+            # Copy Files over  to Comet
+            os.system( Configure.c2c % (submit, self.Name))
+            os.system( Configure.c2c % (File_Name, self.Name))
+            # Run job
+            os.system( Configure.c2l % (self.Name, File_Out))
+            try:
+                File = open(File_Out,'r')
+            except:
+                subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (self.Name, submit)])
+
             Finished = False
             i = 0
             while not Finished:
-                os.system( c2m % (self.Name, File_Out))
+                os.system( Configure.c2l % (self.Name, File_Out))
                 try:
                     File = open(File_Out,'r')
                     File_Lines = File.readlines()
@@ -139,7 +153,7 @@ class Molecule(object):
         for i in range(len(File_Lines)):
             Line = File_Lines[i].strip('\n').split()
             try:
-                if Line[0] == "Redundant" and File_Lines[i+2].strip('\n').split()[1] == "Optimized":
+                if Line[0] == "Redundant" and (File_Lines[i+2].strip('\n').split()[1] == "Optimized" or self.UnConverged == True):
                     Redundant = True
                     j = i + 7
                     while Redundant:

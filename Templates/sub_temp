@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name="Aro_{name}"
+#SBATCH --output="job.%j.%N.out"
+#SBATCH --partition=compute
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH -t 48:00:00
+#SBATCH -A csd467
+module load lammps
+cd /oasis/scratch/comet/seroot/temp_project/Aromodel/{name}
+export OMP_NUM_THREADS=1
+
+/oasis/scratch/comet/seroot/temp_project/Orca/orca_3_0_3_linux_x86-64/orca {name}.inp > {name}.out
+
