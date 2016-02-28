@@ -28,18 +28,20 @@ class DA_Polymer(object):
         Angle_List[Num_Angles] = list of angle objects
         Dihedral_List[Num_Dihedrals] = list of Dihedral objects
         Improper_List[Num_Impropers] = list of Improper objects
+        MW = Molecular Weight
         COM = Center of Mass
         MOL_ID = ID Number for molecule
         unConverged = Flag for bypassing Orca convergence (Default = False)
         """
     def __init__(self, Filename):
-        self.Name = Filename.split('.')[0].split('_')[0]
+        self.Name = Filename.split('.')[1].split('_')[0]
         File = open(Filename,'r')
         File_Lines = File.readlines()
         self.Bond_List = []
         self.Angle_List = []
         self.Dihedral_List = []
         self.Improper_List = []
+        self.MW = 0.0
         self.COM = np.zeros(3,float)
         self.Mol_ID =0
 
@@ -201,7 +203,6 @@ class DA_Polymer(object):
                             
         # Compute center of Mass
         Mass_Weighted_Sum = np.zeros(3,dtype=float)
-        self.MW = 0
         for Atom_Obj in self.Atom_List:
             Mass_Weighted_Sum += Atom_Obj.Position*Atom_Obj.Mass
             self.MW += Atom_Obj.Mass

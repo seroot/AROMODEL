@@ -18,7 +18,7 @@ Comet_Path = "/oasis/scratch/comet/seroot/temp_project/Aromodel/%s" # % Director
 Orca_Path = "/oasis/scratch/comet/seroot/temp_project/Orca/orca_3_0_3_linux_x86-64/orca"
 
 
-c2c = "scp %s" + Comet_Login + ":" + Comet_Path # % (File, Directory_Name)
+c2c = "scp %s " + Comet_Login + ":" + Comet_Path # % (File, Directory_Name)
 c2l = "scp " + Comet_Login + ":" + Comet_Path + "/%s ./" # % (Directory_Name, File)
 SBATCH = "sbatch " + Comet_Path + "/%s" # %( Directory_Name, Submit_Script)
 

@@ -43,6 +43,7 @@ class Molecule(object):
         self.Angle_List = []
         self.Dihedral_List = []
         self.Improper_List = []
+        self.MW = 0.0
         self.COM = np.zeros(3,float)
         self.Mol_ID = 0
         self.Missing_Dihedrals = 0
@@ -58,6 +59,7 @@ class Molecule(object):
             Element = Line[0]
             Position = np.array( [ float(Line[1]), float(Line[2]), float(Line[3]) ], dtype=float )
             self.Atom_List[i] = Atom.Atom(Position, Element, i+1) # Instantiate Atom_List with Atom objects
+            self.MW += Atom_List[i].Mass
         
         print "Initial XYZ Coordinates:\n"
         for Atom_Obj in self.Atom_List:

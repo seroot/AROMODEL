@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH --job-name="{System_Name}"
+#SBATCH --output="lammpsgpu.%j.%N.out"
+#SBATCH --partition=gpu
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=24
+#SBATCH --no-requeue
+#SBATCH --gres=gpu:4
+#SBATCH -t 048:00:00
+#SBATCH -A csd467
+cd {path}
+
+module unload mvapich2_ib
+module unload intel
+module load intel/2015.2.164
+module load mvapich2_ib
+module load cuda
+
+ibrun -np 24 /share/apps/gpu/lammps/lmp_cuda_mpi -sf gpu -pk gpu 4 -in in.init_{System_Name}

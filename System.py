@@ -26,10 +26,8 @@ class System(object):
         
     """
 
-    def __init__(self, Moltemp_List, Composition_List, Box_Size):
-        self.Name = ""
-        for i in range(len(Moltemp_List)):
-            self.Name += Moltemp_List[i].Name + "_%d" % Composition_List[i]
+    def __init__(self, Moltemp_List, Composition_List, Box_Size, Name):
+        self.Name = Name
         
     
         self.Moltemp_List = Moltemp_List
@@ -200,8 +198,9 @@ class System(object):
                     File.write('%d %d %d %d %d %d\n' % (Improper_Obj.System_ID, Improper_Obj.LAMMPS_Type, Improper_Obj.Improper_Master.System_ID, Improper_Obj.Improper_Slave1.System_ID, Improper_Obj.Improper_Slave2.System_ID, Improper_Obj.Improper_Slave3.System_ID))
                     i += 1
 
-    def Run_Lammps_Init(self):
-        subprocess.call(["ssh", "seroot@comet.sdsc.edu", "mkdir /oasis/scratch/comet/seroot/temp_project/Aromodel/%s" % self.Name])
+    def Run_Lammps_Init(self, GPU = False):
+        cmd = "mkdir" + Configure.Comet_Path % self.Name
+        subprocess.call(["ssh", Configure.Comet_Login, cmd])
         
         # Set up input file
         In_Temp = Configure.Template_Path + "in.init_temp"
@@ -211,24 +210,57 @@ class System(object):
         s = template.format(System_Name = self.Name)
         with open(In_File,'w') as f:
             f.write(s)
+        """
+        Current Rule of thumb for Parallel Job Submission:
+        MPI: 1 processor per 1000 atoms
+        MPI + GPU: 4 GPU and 24 Processors --> Only use for >100K particles
+        Need to do more benchmarks with current system --> good task for CJ
+        """
         
+        NProcs = int(self.Num_Atoms/1000.)
+        if NProcs > 48:
+            GPU = True
         # Set up submit script
-        sub_temp = Configure.Template_Path + "sub_Lammps"
-        submit = "sub_%s" % self.Name
-        with open(sub_temp) as f:
-            template = f.read()
-        s = template.format(System_Name = self.Name)
-        with open(submit,'w') as f:
-            f.write(s)
+        if not GPU:
+            if NProcs < 24:
+                sub_temp = Configure.Template_Path + "sub_Lammps"
+                submit = "sub_%s" % self.Name
+                with open(sub_temp) as f:
+                    template = f.read()
+                    s = template.format(System_Name = self.Name, path = Configure.Comet_Path % self.Name, NProcs = NProcs, Nodes=1, tpn = NProcs)
+                with open(submit,'w') as f:
+                    f.write(s)
+            if NProcs > 24 and NProcs < 48:
+                sub_temp = Configure.Template_Path + "sub_Lammps"
+                submit = "sub_%s" % self.Name
+                tpn = NProcs/2
+                NProcs = tpn*2
+                with open(sub_temp) as f:
+                    template = f.read()
+                    s = template.format(System_Name = self.Name, path = Configure.Comet_Path % self.Name, NProcs = NProcs, Nodes=2, tpn = tpn)
+                with open(submit,'w') as f:
+                    f.write(s)
+    
+        elif GPU:
+            sub_temp = Configure.Template_Path + "GPU_Sub"
+            submit = "GPU_sub_%s" % self.Name
+            with open(sub_temp) as f:
+                template = f.read()
+            s = template.format(System_Name = self.Name, path = Configure.Comet_Path % self.Name)
+            with open(submit,'w') as f:
+                f.write(s)
+            
 
+        File_Out1 = 'log.Init_%s' % self.Name
         File_Out = 'restart.Condensed_%s' % self.Name
+
         # Copy over to Comet
         os.system( Configure.c2c % (submit, self.Name))
         os.system( Configure.c2c % (In_File, self.Name))
         os.system( Configure.c2c % (self.Data_File, self.Name))
-        os.system( Configure.c2l % (self.Name, File_Out))
+        os.system( Configure.c2l % (self.Name, File_Out1))
         try:
-            File = open(File_Out,'r')
+            File = open(File_Out1,'r')
         except:
             subprocess.call(["ssh", Configure.Comet_Login, Configure.SBATCH % (self.Name, submit)])
         Finished = False
