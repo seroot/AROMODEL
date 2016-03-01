@@ -7,6 +7,7 @@ import os
 import subprocess
 import shutil
 import time
+import random
 # import Class structure
 import Atom
 import Bond
@@ -28,7 +29,7 @@ class Molecule(object):
         Improper_List[Num_Impropers] = list of Improper objects
         COM = Center of Mass
         MOL_ID = ID Number for molecule
-        unConverged = Flag for bypassing Orca convergence (Default = False)
+        UnConverged = Flag for bypassing Orca convergence (Default = False)
     """
 
     def __init__(self, File_Name):
@@ -47,7 +48,7 @@ class Molecule(object):
         self.COM = np.zeros(3,float)
         self.Mol_ID = 0
         self.Missing_Dihedrals = 0
-        self.unConverged = False # Unconverged Orca Optimization
+        self.UnConverged = False # Unconverged Orca Optimization
         
         print "Setting up molecule"
         print "Molecule Name:", self.Name
@@ -59,7 +60,7 @@ class Molecule(object):
             Element = Line[0]
             Position = np.array( [ float(Line[1]), float(Line[2]), float(Line[3]) ], dtype=float )
             self.Atom_List[i] = Atom.Atom(Position, Element, i+1) # Instantiate Atom_List with Atom objects
-            self.MW += Atom_List[i].Mass
+            self.MW += self.Atom_List[i].Mass
         
         print "Initial XYZ Coordinates:\n"
         for Atom_Obj in self.Atom_List:
@@ -68,9 +69,30 @@ class Molecule(object):
         return
 
     def Adjust_COM(self):
+        # This adjusts the center of mass and gives the molecule a random orientation
+        x = random.random()*2*3.1415
+        y = random.random()*2*3.1415
+        
+        C1 = np.cos(x)
+        S1 = np.sin(x)
+        C2 = np.cos(y)
+        S2 = np.cos(y)
+        
         for Atom_Obj in self.Atom_List:
+            # First rotation
+            xt = Atom_Obj.Position[0]
+            yt = Atom_Obj.Position[1]
+            Atom_Obj.Position[0] = xt*C1 - yt*S1
+            Atom_Obj.Position[1] = xt*S1 + yt*C1
+            # Second rotation
+            xt = Atom_Obj.Position[0]
+            zt = Atom_Obj.Position[2]
+            Atom_Obj.Position[0] = xt*C2 - zt*S2
+            Atom_Obj.Position[2] = xt*S2 + zt*C2
+            
             Atom_Obj.Position += self.COM
         return
+
 
     def Set_Up_FF(self, run_orca=True):
         if run_orca:
@@ -97,7 +119,7 @@ class Molecule(object):
             
             File_Out = self.Name + ".out"
             print "Running Orca Geometry Optimization on Comet"
-            cmd = "mkdir" + Configure.Comet_Path % self.Name
+            cmd = "mkdir " + Configure.Comet_Path % self.Name
             subprocess.call(["ssh", Configure.Comet_Login, cmd])
             subtemp = Configure.Template_Path + "sub_orca_temp"
             submit = "submit_orca"
@@ -127,7 +149,7 @@ class Molecule(object):
                     File = open(File_Out,'r')
                     File_Lines = File.readlines()
                     print File_Lines[-1]
-                    if File_Lines[-1].split(' ')[0] == "TOTAL":
+                    if File_Lines[-1].split(' ')[0] == "TOTAL" or self.UnConverged:
                         Finished = True
                     else:
                         print "Not Finished"
@@ -154,8 +176,54 @@ class Molecule(object):
         print "Extracting Redundant Coordinates..."
         for i in range(len(File_Lines)):
             Line = File_Lines[i].strip('\n').split()
+            #print Line
+            Found = False
             try:
-                if Line[0] == "Redundant" and (File_Lines[i+2].strip('\n').split()[1] == "Optimized" or self.UnConverged == True):
+                if Line[0] == "Redundant" and self.UnConverged:
+                    Redundant = True
+                    j = i + 6
+                    k = 0
+                    while Redundant:
+                        R_Line = File_Lines[j]
+                        R_Line = R_Line.split()
+                        print R_Line
+                        try:
+                            if int(R_Line[0].strip('.')) >= 1:
+                                j = j + 1
+                                Type = R_Line[1].split('(')[0]
+                                k += 1
+                                # Extract Bonds
+                                if Type == "B":
+                                    Master_ID = int(R_Line[2].split(',')[0])
+                                    Slave_ID = int(R_Line[3].split(')')[0])
+                                    req = float(R_Line[-1])
+                                    self.Atom_List[Master_ID].Bond_List.append(self.Atom_List[Slave_ID])
+                                    self.Atom_List[Slave_ID].Bond_List.append(self.Atom_List[Master_ID])
+                                    self.Bond_List.append( Bond.Bond(self.Atom_List[Master_ID], self.Atom_List[Slave_ID], req))
+                                # Extract Angles
+                                if Type == "A":
+                                    Master_ID = int(R_Line[3].split(',')[0])
+                                    Slave1_ID = int(R_Line[2].split(',')[0])
+                                    Slave2_ID = int(R_Line[4].split(')')[0])
+                                    Angle_Eq = float(R_Line[-1])
+                                    self.Angle_List.append( Angle.Angle(self.Atom_List[Master_ID], self.Atom_List[Slave1_ID], self.Atom_List[Slave2_ID], Angle_Eq))
+                                if Type == "D":
+                                    Master1_ID = int(R_Line[3].split(',')[0])
+                                    Master2_ID = int(R_Line[4].split(',')[0])
+                                    Slave1_ID = int(R_Line[2].split(',')[0])
+                                    Slave2_ID = int(R_Line[5].split(')')[0])
+                                    Dihedral_Eq = float(R_Line[-1])
+                                    self.Dihedral_List.append(Dihedral.Dihedral(self.Atom_List[Master1_ID],self.Atom_List[Master2_ID], self.Atom_List[Slave1_ID], self.Atom_List[Slave2_ID], Dihedral_Eq))
+                        except:
+                            Redundant = False
+                            Found = True
+                            print k
+            
+                if Found:
+                    break
+                
+                elif Line[0] == "Redundant" and (File_Lines[i+2].strip('\n').split()[1] == "Optimized"):
+                    print "Found redundant internal coordinates"
                     Redundant = True
                     j = i + 7
                     while Redundant:
@@ -190,7 +258,7 @@ class Molecule(object):
                         except:
                             Redundant = False
     
-                if Line[0] == "CHELPG" and len(Line) == 2:
+                if Line[0] == "CHELPG" and len(Line) == 2 and not self.UnConverged:
                     for j in range(self.N):
                         Chelp_Line = File_Lines[i+2+j].split()
                         index = int(Chelp_Line[0])
@@ -205,6 +273,7 @@ class Molecule(object):
             except:
                 continue
         print "Redundant Internal Coordinates and ChelpG partial charges Extracted"
+        print "Bond_List = ", len(self.Bond_List)
         
         if not run_orca:
             os.chdir('..')

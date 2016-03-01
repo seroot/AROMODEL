@@ -41,15 +41,19 @@ class System(object):
 
     def Gen_Rand(self):
         i = 0
+        k = 1
         for Molecule_Obj in self.Moltemp_List:
             print "Genenerated", self.Composition_List[i], Molecule_Obj.Name, "Molecules"
             for j in range(self.Composition_List[i]):
                 Temp_Mol = deepcopy(Molecule_Obj)
+                #Temp_Mol = Molecule_Obj
                 Temp_Mol.COM += [random.random()*self.Box_Size, random.random()*self.Box_Size, random.random()*self.Box_Size]
-                Temp_Mol.Mol_ID = j + i + 1
+                Temp_Mol.Mol_ID = k
+                k += 1
                 Temp_Mol.Adjust_COM()
                 self.Molecule_List.append(Temp_Mol)
             i += 1
+        
     
         Q = 0
         Num_Atoms = 0
@@ -199,7 +203,7 @@ class System(object):
                     i += 1
 
     def Run_Lammps_Init(self, GPU = False):
-        cmd = "mkdir" + Configure.Comet_Path % self.Name
+        cmd = "mkdir " + Configure.Comet_Path % self.Name
         subprocess.call(["ssh", Configure.Comet_Login, cmd])
         
         # Set up input file
@@ -251,7 +255,7 @@ class System(object):
                 f.write(s)
             
 
-        File_Out1 = 'log.Init_%s' % self.Name
+        File_Out1 = 'log.init_%s' % self.Name
         File_Out = 'restart.Condensed_%s' % self.Name
 
         # Copy over to Comet
@@ -271,7 +275,7 @@ class System(object):
                 File = open(File_Out,'r')
                 Finished = True
             except:
-                print "Sleeping process", i, "miniutes"
+                print "Sleeping process", i, "minutes"
                 time.sleep(600)
                 i += 10
         os.system( 'rm %s' % File_Out)

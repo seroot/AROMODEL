@@ -6,13 +6,14 @@ import sys
 import DA_Polymer
 import glob
 import numpy as np
+import os
 
 # This script is specific to the DA project, it takes in lammps data files
 # and generates a polymer system
 
 def main():
-    Mult = 1
-    Density = 0.01
+    Mult = 5
+    Density = 0.1
     
     File_List = glob.glob('data.*')
     print File_List
@@ -33,8 +34,10 @@ def main():
     Volume = Molar_Volume*Total_Mols
     Box_Length_CM = Volume**(1./3.)
     Box_Length = Box_Length_CM*100000000
-    Name = File_List[0].split('.')[1].split('_')[0] + "_%s" % i*Mult
+    #Name = File_List[0].split('.')[1].split('_')[0] + "_%s" % i*Mult
     
+    Name = os.getcwd().split('/')[-1] + "_%s" % int(i*Mult)
+    print Name
     DA_System = System.System(Mol_Temp_List, Comp_List, Box_Length, Name)
     DA_System.Gen_Rand()
     DA_System.Write_LAMMPS_Data()

@@ -6,6 +6,9 @@ import os
 import subprocess
 import shutil
 import time
+import LinAlg
+import random
+
 # import Class structure
 import Atom
 import Bond
@@ -44,6 +47,7 @@ class DA_Polymer(object):
         self.MW = 0.0
         self.COM = np.zeros(3,float)
         self.Mol_ID =0
+        self.basis = np.eye(3)
 
         j = -1
         for Line in File_Lines:
@@ -223,9 +227,30 @@ class DA_Polymer(object):
         
 
     def Adjust_COM(self):
+        # This adjusts the center of mass and gives the molecule a random orientation
+        x = random.random()*2*3.1415
+        y = random.random()*2*3.1415
+        
+        C1 = np.cos(x)
+        S1 = np.sin(x)
+        C2 = np.cos(y)
+        S2 = np.cos(y)
+        
         for Atom_Obj in self.Atom_List:
+            # First rotation
+            xt = Atom_Obj.Position[0]
+            yt = Atom_Obj.Position[1]
+            Atom_Obj.Position[0] = xt*C1 - yt*S1
+            Atom_Obj.Position[1] = xt*S1 + yt*C1
+            # Second rotation
+            xt = Atom_Obj.Position[0]
+            zt = Atom_Obj.Position[2]
+            Atom_Obj.Position[0] = xt*C2 - zt*S2
+            Atom_Obj.Position[2] = xt*S2 + zt*C2
+            
             Atom_Obj.Position += self.COM
         return
+
 
 
 

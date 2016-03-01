@@ -2,7 +2,7 @@
 
 
 # Import relevant modules
-
+import numpy as np
 # Atom Class
 
 Mass_Dict = {"C":12.011, "H":1.008, "Cl":35.453, "Si":28.0855, "O":15.9994, "S":32.06, "F":18.998}
@@ -30,6 +30,7 @@ class Atom(object):
         self.Atom_ID = Atom_ID
         self.LAMMPS_Type = 0
         self.System_ID = 0
+        self.COM_Position = np.zeros(3,dtype=float)
         return
 
 
@@ -84,7 +85,9 @@ def Find_OPLS_ID(Atom):
         if Bonded_Atom.OPLS_Class == 13:
             Atom.OPLS_Type = 85
             Atom.OPLS_Class = 46
-
+        else:
+            Atom.OPLS_Type = 85
+            Atom.OPLS_Class = 46
     if Atom.Element == "Cl":
         Bonded_Atom = Atom.Bond_List[0]
         if Bonded_Atom.OPLS_Class == 48:

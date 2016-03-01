@@ -19,7 +19,7 @@ def Assign_OPLS(Molecule, ChelpG = True):
     print "______________________________"
     for Atom_Obj in Molecule.Atom_List:
         Atom.Find_OPLS_ID(Atom_Obj)
-        print Atom_Obj.Element, Atom_Obj.OPLS_Type, Atom_Obj.OPLS_Class
+        print Atom_Obj.Atom_ID, Atom_Obj.Element, Atom_Obj.OPLS_Type, Atom_Obj.OPLS_Class
     
     # Open up OPLS FILE
     OPLS_Path = Configure.Template_Path + "oplsaa.prm.txt"
@@ -67,7 +67,7 @@ def Assign_OPLS(Molecule, ChelpG = True):
                 i += 1
                 Atom_Obj.Sigma = float(VDW[2])
                 Atom_Obj.Epsilon = float(VDW[3])
-                print Atom_Obj.Element, Atom_Obj.OPLS_Type, Atom_Obj.Sigma, Atom_Obj.Epsilon
+                print Atom_Obj.Atom_ID, Atom_Obj.Element, Atom_Obj.OPLS_Type, Atom_Obj.Sigma, Atom_Obj.Epsilon
 
     if i == len(Molecule.Atom_List):
         print "All atom types present and accounted for :)"
@@ -99,6 +99,8 @@ def Assign_OPLS(Molecule, ChelpG = True):
             if int(B_OPLS[1]) == Bonded_Atoms[0] and int(B_OPLS[2]) == Bonded_Atoms[1]:
                 i += 1
                 Bond_Obj.kb = float(B_OPLS[3])
+                if Molecule.UnConverged:
+                    Bond_Obj.req = float(B_OPLS[4])
                 Bond_Obj.Bond_ID = i
                 print i, Bond_Obj.req, B_OPLS[4], Bond_Obj.kb
 
@@ -123,6 +125,8 @@ def Assign_OPLS(Molecule, ChelpG = True):
             if int(A_OPLS[2]) == Angle_Obj.Angle_Master.OPLS_Class and Angle_Slaves[0] == int(A_OPLS[1]) and Angle_Slaves[1] == int(A_OPLS[3]):
                 i += 1
                 Angle_Obj.ka = float(A_OPLS[4])
+                if Molecule.UnConverged:
+                    Angle_Obj.Angle_Eq = float(A_OPLS[5])
                 Angle_Obj.Angle_ID = i
                 print i, Angle_Obj.Angle_Eq, float(A_OPLS[5])
     print "-------------------------------------"
