@@ -42,6 +42,7 @@ def main():
     DA_System.Gen_Rand()
     DA_System.Write_LAMMPS_Data()
     DA_System.Run_Lammps_Init()
+    DA_System.Run_Lammps_NPT(800, GPU=True)
     
     
     """

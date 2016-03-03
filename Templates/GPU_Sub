@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="{System_Name}"
+#SBATCH --job-name="{Sim_Name}"
 #SBATCH --output="lammpsgpu.%j.%N.out"
 #SBATCH --partition=gpu
 #SBATCH --nodes=1
@@ -16,4 +16,4 @@ module load intel/2015.2.164
 module load mvapich2_ib
 module load cuda
 
-ibrun -np 24 /share/apps/gpu/lammps/lmp_cuda_mpi -sf gpu -pk gpu 4 -in in.init_{System_Name} -log log.init_{System_Name}
+ibrun -np 24 /share/apps/gpu/lammps/lmp_cuda_mpi -sf gpu -pk gpu 4 -in in.{Sim_Name} -log log.{Sim_Name}

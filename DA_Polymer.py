@@ -6,7 +6,6 @@ import os
 import subprocess
 import shutil
 import time
-import LinAlg
 import random
 
 # import Class structure

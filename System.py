@@ -7,6 +7,7 @@ import os
 import subprocess
 import time
 import Configure
+import Parallel
 # Class defining an MD system for simulation with LAMMPS
 
 
@@ -35,6 +36,8 @@ class System(object):
         self.Composition_List = Composition_List
         self.Box_Size = Box_Size
         self.Molecule_List = []
+        self.Current_Restart = ""
+        self.Temperature = 800
         
 
         return
@@ -209,6 +212,7 @@ class System(object):
         # Set up input file
         In_Temp = Configure.Template_Path + "in.init_temp"
         In_File = "in.init_%s" % self.Name
+        Sim_Name = "init_%s" % self.Name
         with open(In_Temp) as f:
             template = f.read()
         s = template.format(System_Name = self.Name)
@@ -231,7 +235,7 @@ class System(object):
                 submit = "sub_%s" % self.Name
                 with open(sub_temp) as f:
                     template = f.read()
-                    s = template.format(System_Name = self.Name, path = Configure.Comet_Path % self.Name, NProcs = NProcs, Nodes=1, tpn = NProcs)
+                    s = template.format(Sim_Name = Sim_Name, path = Configure.Comet_Path % self.Name, NProcs = NProcs, Nodes=1, tpn = NProcs)
                 with open(submit,'w') as f:
                     f.write(s)
             if NProcs > 24 and NProcs < 48:
@@ -241,7 +245,7 @@ class System(object):
                 NProcs = tpn*2
                 with open(sub_temp) as f:
                     template = f.read()
-                    s = template.format(System_Name = self.Name, path = Configure.Comet_Path % self.Name, NProcs = NProcs, Nodes=2, tpn = tpn)
+                    s = template.format(Sim_Name= Sim_Name, path = Configure.Comet_Path % self.Name, NProcs = NProcs, Nodes=2, tpn = tpn)
                 with open(submit,'w') as f:
                     f.write(s)
     
@@ -250,23 +254,25 @@ class System(object):
             submit = "GPU_sub_%s" % self.Name
             with open(sub_temp) as f:
                 template = f.read()
-            s = template.format(System_Name = self.Name, path = Configure.Comet_Path % self.Name)
+            s = template.format(Sim_Name = Sim_Name, path = Configure.Comet_Path % self.Name)
             with open(submit,'w') as f:
                 f.write(s)
             
 
-        File_Out1 = 'log.init_%s' % self.Name
-        File_Out = 'restart.Condensed_%s' % self.Name
+        File_Out1 = 'log.%s' % Sim_Name
+        File_Out = 'restart.%s_800_1' % self.Name
 
         # Copy over to Comet
         os.system( Configure.c2c % (submit, self.Name))
         os.system( Configure.c2c % (In_File, self.Name))
         os.system( Configure.c2c % (self.Data_File, self.Name))
         os.system( Configure.c2l % (self.Name, File_Out1))
+
         try:
             File = open(File_Out1,'r')
         except:
             subprocess.call(["ssh", Configure.Comet_Login, Configure.SBATCH % (self.Name, submit)])
+
         Finished = False
         i = 0
         while not Finished:
@@ -279,7 +285,66 @@ class System(object):
                 time.sleep(600)
                 i += 10
         os.system( 'rm %s' % File_Out)
+        self.Current_Restart = File_Out
         return
+
+    def Run_Lammps_NPT(self, GPU = False, Temp_Out = 0.0):
+        """
+            Function for running NPT dynamics for the system in lammps
+            
+        """
+        Temp_In = self.Temperature
+        count = int(self.Current_Restart.split('_')[-1])
+        count += 1
+        NPT_Temp = Configure.Template_Path + "in.NPT_Temp"
+        NPT_In = "in.NPT_%s_%d_%d" % (self.Name, count, Temp_In)
+        Sim_Name = NPT_In.split('.')[-1]
+        if Temp_Out != 0.0:
+            NPT_In += "_%d" % Temp_Out
+            self.Temperature = Temp_Out
+        if Temp_Out == 0.0:
+            Temp_Out = Temp_In
+        New_Restart = 'restart.%s_%d_%d' % (self.Name, Temp_Out, count)
+
+        with open(NPT_Temp) as f:
+            template = f.read()
+        s = template.format(Name = self.Name, count = count, Temp_In = Temp_In, Temp_Out = Temp_Out, Restart_In = self.Current_Restart, Restart_Out = New_Restart)
+        with open(NPT_In,'w') as f:
+            f.write(s)
+        
+        submit = Parallel.Write_Submit_Script( self.Num_Atoms, Sim_Name, self.Name)
+        File_Out1 = 'log.%s' % Sim_Name
+        File_Out = New_Restart
+
+        # Copy over to Comet
+        os.system( Configure.c2c % (submit, self.Name))
+        os.system( Configure.c2c % (NPT_In, self.Name))
+        os.system( Configure.c2l % (self.Name, File_Out1))
+        
+        try:
+            File = open(File_Out1,'r')
+        except:
+            subprocess.call(["ssh", Configure.Comet_Login, Configure.SBATCH % (self.Name, submit)])
+        
+        Finished = False
+        i = 0
+        while not Finished:
+            os.system( Configure.c2l % (self.Name, File_Out))
+            try:
+                File = open(File_Out,'r')
+                Finished = True
+            except:
+                print "Sleeping process", i, "minutes"
+                time.sleep(600)
+                i += 10
+
+        os.system( 'rm %s' % File_Out)
+        self.Current_Restart = File_Out
+        return
+
+
+
+
 
 
 
