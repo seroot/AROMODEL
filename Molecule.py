@@ -8,6 +8,7 @@ import subprocess
 import shutil
 import time
 import random
+import glob
 # import Class structure
 import Atom
 import Bond
@@ -66,6 +67,33 @@ class Molecule(object):
         for Atom_Obj in self.Atom_List:
             print Atom_Obj.Element, Atom_Obj.Position
         print "----------------------------------"
+        
+        # Compute center of Mass
+        Mass_Weighted_Sum = np.zeros(3,dtype=float)
+        for Atom_Obj in self.Atom_List:
+            Mass_Weighted_Sum += Atom_Obj.Position*Atom_Obj.Mass
+            self.MW += Atom_Obj.Mass
+        
+        print "Molecular Weight is ", self.MW, "Grams/Mole"
+        self.COM = Mass_Weighted_Sum/self.MW
+        self.COM = np.asarray(self.COM)
+        print "COM is", self.COM
+        
+        Mass_Weighted_Sum = 0.0
+        for Atom_Obj in self.Atom_List:
+            Mass_Weighted_Sum += Atom_Obj.Mass*((Atom_Obj.Position[0] - self.COM[0])**2 + (Atom_Obj.Position[1] - self.COM[1])**2  + (Atom_Obj.Position[2] - self.COM[2])**2 )
+        Rg2 = Mass_Weighted_Sum/self.MW
+        self.Rg = np.sqrt(Rg2)
+        print "The Radius of Gyration is", self.Rg
+                
+            
+        
+        # Zero COM
+        for Atom_Obj in self.Atom_List:
+            Atom_Obj.Position -= self.COM
+        
+        self.COM -= self.COM
+        print self.COM
         return
 
     def Adjust_COM(self):
@@ -85,83 +113,90 @@ class Molecule(object):
             Atom_Obj.Position[0] = xt*C1 - yt*S1
             Atom_Obj.Position[1] = xt*S1 + yt*C1
             # Second rotation
-            xt = Atom_Obj.Position[0]
-            zt = Atom_Obj.Position[2]
-            Atom_Obj.Position[0] = xt*C2 - zt*S2
-            Atom_Obj.Position[2] = xt*S2 + zt*C2
+            #xt = Atom_Obj.Position[0]
+            #zt = Atom_Obj.Position[2]
+            #Atom_Obj.Position[0] = xt*C2 - zt*S2
+            #Atom_Obj.Position[2] = xt*S2 + zt*C2
             
             Atom_Obj.Position += self.COM
         return
 
 
-    def Set_Up_FF(self, run_orca=True):
+    def Set_Up_FF(self, run_orca=True, local= True):
         if run_orca:
             print "Setting up Orca input script"
         
             # Write Orca Input File
             File_Name = self.Name + ".inp"
             File = open(File_Name, 'w')
-            File.write('! RKS B3LYP 6-31+G** TightSCF Opt CHELPG\n\n')
+            File.write('! RKS B3LYP 6-31+G** NormalSCF Opt NOSOSCF CHELPG PAL8\n\n')
             File.write('*xyz 0 1\n')
             for Atom_Obj in self.Atom_List:
                 File.write('%s %.5f %.5f %.5f\n' % ( Atom_Obj.Element, Atom_Obj.Position[0], Atom_Obj.Position[1],Atom_Obj.Position[2]))
             File.write('*')
             File.close()
-            
-            """
-            #Run subprocess on local machine
-            os.system('mkdir Orca')
-            os.system('mv %s ./Orca' % File_Name)
-            os.chdir('./Orca')
-            File_Out = self.Name + ".out"
-            os.system('orca %s > %s' %(File_Name, File_Out)) # Run Orca Job
-            """
-            
-            File_Out = self.Name + ".out"
-            print "Running Orca Geometry Optimization on Comet"
-            cmd = "mkdir " + Configure.Comet_Path % self.Name
-            subprocess.call(["ssh", Configure.Comet_Login, cmd])
-            subtemp = Configure.Template_Path + "sub_orca_temp"
-            submit = "submit_orca"
-            Path = Configure.Comet_Path % self.Name
-            # Write submit script
-            with open(subtemp) as f:
-                template = f.read()
-            s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name = self.Name )
-            with open(submit ,"w") as f:
-                f.write(s)
-            
-            # Copy Files over  to Comet
-            os.system( Configure.c2c % (submit, self.Name))
-            os.system( Configure.c2c % (File_Name, self.Name))
-            # Run job
-            os.system( Configure.c2l % (self.Name, File_Out))
-            try:
-                File = open(File_Out,'r')
-            except:
-                subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (self.Name, submit)])
-
             Finished = False
-            i = 0
-            while not Finished:
+            
+            File_Out = self.Name + ".out"
+            if local:
+                #Run subprocess on local machine
+                
+                
+                os.system('mkdir Orca')
+                os.system('mv %s ./Orca' % File_Name)
+                os.chdir('./Orca')
+                File_Out = self.Name + ".out"
+                try:
+                    File = open(File_Out,'r')
+                except:
+                    os.system('orca %s > %s' %(File_Name, File_Out)) # Run Orca Job
+            
+            
+            else:
+                print "Running Orca Geometry Optimization on Comet"
+                cmd = "mkdir " + Configure.Comet_Path % self.Name
+                subprocess.call(["ssh", Configure.Comet_Login, cmd])
+                subtemp = Configure.Template_Path + "sub_orca_temp"
+                submit = "submit_orca"
+                Path = Configure.Comet_Path % self.Name
+                # Write submit script
+                with open(subtemp) as f:
+                    template = f.read()
+                s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name = self.Name )
+                with open(submit ,"w") as f:
+                    f.write(s)
+            
+                # Copy Files over  to Comet
+                os.system( Configure.c2c % (submit, self.Name))
+                os.system( Configure.c2c % (File_Name, self.Name))
+                # Run job
                 os.system( Configure.c2l % (self.Name, File_Out))
                 try:
                     File = open(File_Out,'r')
-                    File_Lines = File.readlines()
-                    print File_Lines[-1]
-                    if File_Lines[-1].split(' ')[0] == "TOTAL" or self.UnConverged:
-                        Finished = True
-                    else:
-                        print "Not Finished"
-                        i += 10
-                        print "Sleeping process", i, "Minutes"
-                        time.sleep(600)
                 except:
-                    print "Sleeping process", i, "miniutes"
-                    time.sleep(600)
-                    i += 10
+                    subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (self.Name, submit)])
+
+
+                i = 0
+                while not Finished:
+                    os.system( Configure.c2l % (self.Name, File_Out))
+                    try:
+                        File = open(File_Out,'r')
+                        File_Lines = File.readlines()
+                        print File_Lines[-1]
+                        if File_Lines[-1].split(' ')[0] == "TOTAL" or self.UnConverged:
+                            Finished = True
+                        else:
+                            print "Not Finished"
+                            i += 10
+                            print "Sleeping process", i, "Minutes"
+                            time.sleep(600)
+                    except:
+                        print "Sleeping process", i, "miniutes"
+                        time.sleep(600)
+                        i += 10
     
-                
+    
             
     
     
@@ -278,6 +313,9 @@ class Molecule(object):
         if not run_orca:
             os.chdir('..')
         
+        if local:
+            os.chdir('..')
+        
         print "Optimized XYZ Coordinates:\n"
         for Atom_Obj in self.Atom_List:
             # Finds OPLS Types and Classes
@@ -287,6 +325,162 @@ class Molecule(object):
         return
 
 
+
+    def Scan_Dihedrals(self, Dihedral_Scan_List):
+        i = 0
+        for Dihedral_Angle in Dihedral_Scan_List:
+            i += 1
+            for Dihedral_Obj in self.Dihedral_List:
+                Compare = [ Dihedral_Obj.Dihedral_Slave1.Atom_ID, Dihedral_Obj.Dihedral_Master1.Atom_ID, Dihedral_Obj.Dihedral_Master2.Atom_ID, Dihedral_Obj.Dihedral_Slave2.Atom_ID]
+                print Compare
+                if Compare == Dihedral_Angle:
+                    print "Found Dihedral, Dihedral ID = ", Dihedral_Obj.Dihedral_Eq
+                    Dihedral_Eq = Dihedral_Obj.Dihedral_Eq
+            # Write Orca Input File
+            File_Name = self.Name + "_Dih_%d.inp" % i
+            File = open(File_Name, 'w')
+            File.write('! RKS B3LYP 6-31+G** NormalSCF Opt NOSOSCF CHELPG PAL8\n\n')
+            File.write('%geom Scan\n')
+            if abs(Dihedral_Eq) <= 180.0 and abs(Dihedral_Eq) >=170:
+                File.write('\tD %d %d %d %d = %.1f, %.1f, 37\n' % ( Dihedral_Angle[0]-1, Dihedral_Angle[1]-1, Dihedral_Angle[2]-1, Dihedral_Angle[3]-1, Dihedral_Eq, -Dihedral_Eq))
+            elif abs(Dihedral_Eq) >= 0.0 and abs(Dihedral_Eq) <= 10.0:
+                File.write('\tD %d %d %d %d = %.1f, %.1f, 37\n' % ( Dihedral_Angle[0]-1, Dihedral_Angle[1]-1, Dihedral_Angle[2]-1, Dihedral_Angle[3]-1, Dihedral_Eq, 360.0))
+            else:
+                print "Error: Edit Molecule.py/Scan_Dihedrals()"
+                time.sleep(600)
+            File.write('end end\n\n')
+            File.write('*xyz 0 1\n')
+            for Atom_Obj in self.Atom_List:
+                File.write('%s %.5f %.5f %.5f\n' % ( Atom_Obj.Element, Atom_Obj.Position[0], Atom_Obj.Position[1],Atom_Obj.Position[2]))
+            File.write('*')
+            
+            File.close()
+            Finished = False
+            File_Out = self.Name + "_Dih_%d.out" % i
+            Dihedral_Name = self.Name + "_Dih_%d" % i
+
+
+            print "Running Orca Dihedral Scan %d on Comet" % i
+            cmd = "mkdir " + Configure.Comet_Path % self.Name + "/Dihedral_%d" % i
+            subprocess.call(["ssh", Configure.Comet_Login, cmd])
+            subtemp = Configure.Template_Path + "sub_orca_temp"
+            submit = "submit_orca"
+            Path = Configure.Comet_Path % self.Name + "/Dihedral_%d" % i
+            # Write submit script
+            with open(subtemp) as f:
+                template = f.read()
+                s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name = Dihedral_Name )
+            with open(submit ,"w") as f:
+                f.write(s)
+            
+            # Copy Files over  to Comet
+            Dihedral_Path = self.Name + "/Dihedral_%d" % i
+            
+            os.system( Configure.c2c % (submit, Dihedral_Path))
+            os.system( Configure.c2c % (File_Name, Dihedral_Path))
+            # Run job
+            os.system( Configure.c2l % (Dihedral_Path, File_Out))
+            try:
+                File = open(File_Out,'r')
+            except:
+                subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (Dihedral_Path, submit)])
+            
+            
+            # Continuously check to see if job is finished
+            j = 0
+            while not Finished:
+                os.system( Configure.c2l % (Dihedral_Path, File_Out))
+                try:
+                    File = open(File_Out,'r')
+                    File_Lines = File.readlines()
+                    print File_Lines[-1]
+                    if File_Lines[-1].split(' ')[0] == "TOTAL" or self.UnConverged:
+                        Finished = True
+                    else:
+                        print "Not Finished"
+                        j += 10
+                        print "Sleeping process", j, "Minutes"
+                        time.sleep(600)
+                except:
+                    print "Sleeping process", j, "miniutes"
+                    time.sleep(600)
+                    j  += 10
+
+            try:
+                os.mkdir("Dihedral_%d" % i)
+                os.chdir("Dihedral_%d" % i)
+            except:
+                os.chdir("Dihedral_%d" % i)
+            
+            # Copy XYZ trajectory to working directory
+            XYZ_File = self.Name +  "_Dih_%d" % i + ".*.xyz"
+            
+
+            os.system( Configure.c2l % (Dihedral_Path, XYZ_File))
+            File_List = glob.glob(XYZ_File)
+            Traj_File = open('Traj.xyz', 'w')
+            # Concatenate files
+            for File in File_List:
+                File_Obj = open(File, 'r')
+                File_Lines = File_Obj.readlines()
+                for Line in File_Lines:
+                    Traj_File.write(Line)
+                print
+                index = int(File.split('.')[1].strip('0'))
+                print File_Lines[-1]
+                print index
+                if index < 37 and File_Lines[-1] != ">\n":
+                    Traj_File.write('>\n')
+                        
+            Traj_File.close()
+            MP2_Name = "MP2"
+            
+            # Prepare new submit script
+            with open(subtemp) as f:
+                template = f.read()
+                s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name= MP2_Name)
+            with open(submit, "w") as f:
+                f.write(s)
+
+            # Copy over to comet
+            os.system( Configure.c2c % (submit, Dihedral_Path))
+            os.system( Configure.c2c % ("Traj.xyz", Dihedral_Path))
+            os.system( Configure.c2c % (Configure.Template_Path + "MP2.inp", Dihedral_Path))
+            File_Out = "MP2.out"
+            os.system( Configure.c2l % (Dihedral_Path, File_Out))
+
+            # Run Job
+            try:
+                File = open(File_Out,'r')
+            except:
+                subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (Dihedral_Path, submit)])
+
+            # Continuously check to see if job is finished
+            j = 0
+            while not Finished:
+                os.system( Configure.c2l % (Dihedral_Path, File_Out))
+            try:
+                File = open(File_Out,'r')
+                File_Lines = File.readlines()
+                print File_Lines[-1]
+                if File_Lines[-1].split(' ')[0] == "TOTAL" or self.UnConverged:
+                        Finished = True
+                else:
+                    print "Not Finished"
+                    j += 10
+                    print "Sleeping process", j, "Minutes"
+                    time.sleep(600)
+            except:
+                print "Sleeping process", j, "miniutes"
+                time.sleep(600)
+                j  += 10
+            
+            #Copy back over output and store the results for the MP2 relaxed energy scan
+
+            os.chdir("..")
+                
+
+        return
 # Functions Operating on sets of Molecule objects
 
 def Assign_Lammps(Moltemp_List):
@@ -313,6 +507,7 @@ def Assign_Lammps(Moltemp_List):
                 Atom_Params.append([Atom_Obj.Mass, Atom_Obj.Sigma, Atom_Obj.Epsilon])
                 Atom_Obj.LAMMPS_Type = i
                 print "Found new atom type:", i, "OPLS_ID =", Atom_Obj.OPLS_Type, Atom_Params[i-1]
+                print "Mass is", Atom_Obj.Mass, "Element is", Atom_Obj.Element
 
     print "Finding unique Bonds"
     Bond_Params = []

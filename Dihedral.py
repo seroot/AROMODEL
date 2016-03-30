@@ -18,8 +18,8 @@ class Dihedral(object):
     """
 
     def __init__(self, Dihedral_Master1, Dihedral_Master2, Dihedral_Slave1, Dihedral_Slave2, Dihedral_Eq):
-        self.Dihedral_Master1 = Dihedral_Master1
-        self.Dihedral_Master2 = Dihedral_Master2
+        self.Dihedral_Master1 = Dihedral_Master1 # Atom object
+        self.Dihedral_Master2 = Dihedral_Master2 # Atom object
         self.Dihedral_Slave1 = Dihedral_Slave1
         self.Dihedral_Slave2 = Dihedral_Slave2
         self.Dihedral_Eq = Dihedral_Eq # Assigned in OPLS.Assign_OPLS
@@ -29,4 +29,4 @@ class Dihedral(object):
         self.System_ID = 0 # Assigned in System.Write_LAMMPS_Data()
         return
         
-        
+

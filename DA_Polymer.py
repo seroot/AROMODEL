@@ -15,7 +15,7 @@ import Angle
 import Dihedral
 import Improper
 
-Element_Dict = { 12.011:"C", 1.008:"H", 18.998:"F", 15.999:"O", 32.06:"S"}
+Element_Dict = { 12.011:"C", 1.008:"H", 18.998:"F", 15.999:"O", 32.06:"S", 14.007:"N", 28.086:"Si"}
 
 class DA_Polymer(object):
     """
@@ -242,10 +242,10 @@ class DA_Polymer(object):
             Atom_Obj.Position[0] = xt*C1 - yt*S1
             Atom_Obj.Position[1] = xt*S1 + yt*C1
             # Second rotation
-            xt = Atom_Obj.Position[0]
-            zt = Atom_Obj.Position[2]
-            Atom_Obj.Position[0] = xt*C2 - zt*S2
-            Atom_Obj.Position[2] = xt*S2 + zt*C2
+            #xt = Atom_Obj.Position[0]
+            #zt = Atom_Obj.Position[2]
+            #Atom_Obj.Position[0] = xt*C2 - zt*S2
+            #Atom_Obj.Position[2] = xt*S2 + zt*C2
             
             Atom_Obj.Position += self.COM
         return

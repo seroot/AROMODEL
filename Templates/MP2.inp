@@ -1,0 +1,7 @@
+! UHF RI-MP2 cc-PVTZ PAL8
+
+%mp2 Density relaxed end
+
+* xyzfile 0 1 Traj.xyz
+
+

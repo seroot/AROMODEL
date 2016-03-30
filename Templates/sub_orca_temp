@@ -1,14 +1,17 @@
 #!/bin/bash
 #SBATCH --job-name="Aro_{name}"
 #SBATCH --output="job.%j.%N.out"
-#SBATCH --partition=compute
+#SBATCH --partition=shared
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=8
 #SBATCH -t 48:00:00
 #SBATCH -A csd467
 module load lammps
 cd {Comet_Path}
 export OMP_NUM_THREADS=1
+export PATH=/oasis/scratch/comet/cjpais/temp_project/programs/orca_3_0_3_linux_x86-64:$PATH
+export LD_LIBRARY_PATH=/oasis/scratch/comet/cjpais/temp_project/programs/lib:$LD_LIBRARY_PATH
+export PATH=/oasis/scratch/comet/cjpais/temp_project/programs/bin/:$PATH
 
 {Orca_Path} {name}.inp > {name}.out
 

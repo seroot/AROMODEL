@@ -7,24 +7,36 @@ pair_style	 lj/cut/coul/long 10.0 8.0	 # cutoffLJ cutoff_coulomb
 bond_style	 harmonic        #parameters needed: k_bond, r0
 angle_style	 harmonic        #parameters needed: k_theta, theta0
 dihedral_style   opls
+special_bonds lj/coul 0 0 .5
 improper_style   cvff
 kspace_style     pppm 0.0001     # long-range electrostatics sum method
 pair_modify mix arithmetic	 #using Lorenz-Berthelot mixing rules
 read_restart {Restart_In}
 dielectric 1.0
 
-timestep 2.0
+timestep 1.5
 thermo 1000
-thermo_style custom temp press density etotal ke pe ebond eangle edihed eimp evdwl ecoul elong
+thermo_style custom step temp density etotal ke pe ebond eangle edihed eimp evdwl ecoul elong vol enthalpy
 neighbor 15.0 bin
 neigh_modify delay 0 every 100 check no page 1000000 one 100000
 run_style verlet
+
+# Declare Variables
+
+variable        volume equal "vol"
+variable        dens equal "density"
+variable        temperature equal "temp"
+variable        Enthalpy equal "enthalpy"
+run 0
+
+
+fix def1 all print 100 "${{temperature}} ${{volume}} ${{dens}} ${{Enthalpy}}" append Thermo_{Temp_In}_{Temp_Out}.txt screen no
 
 fix SH all shake 0.0001 20 0 m 1.008
 dump 1 all custom 100000 {Name}_{count}.lammpstrj id type mol x y z ix iy iz
 fix 7 all npt temp {Temp_In} {Temp_Out} 100.0 iso 1.0 1.0 1000.0
 fix 10 all momentum 1000 linear 1 1 1
-run 2000000
+run {Steps}
 
 write_restart {Restart_Out}
 

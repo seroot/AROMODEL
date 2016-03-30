@@ -17,8 +17,9 @@ def Assign_OPLS(Molecule, ChelpG = True):
     print "------------------------------"
     print "Element Type Class"
     print "______________________________"
+    Fullerene = False
     for Atom_Obj in Molecule.Atom_List:
-        Atom.Find_OPLS_ID(Atom_Obj)
+        Fullerene = Atom.Find_OPLS_ID(Atom_Obj, Fullerene)
         print Atom_Obj.Atom_ID, Atom_Obj.Element, Atom_Obj.OPLS_Type, Atom_Obj.OPLS_Class
     
     # Open up OPLS FILE
@@ -85,7 +86,34 @@ def Assign_OPLS(Molecule, ChelpG = True):
                     print "CHelpG:", Atom_Obj.Charge
                     print "OPLS:", float(CHARGE[2])
                     Atom_Obj.Charge = float(CHARGE[2])
-
+        print "Neutralizing Molecule"
+        Q = 0.0
+        Num_Atoms = 0.0
+        for Atom_Obj in Molecule.Atom_List:
+            if Atom_Obj.Charge != 0.0:
+                Q += Atom_Obj.Charge
+                Num_Atoms += 1.0
+        
+        print "Total Charge on Molecule is", Q
+        print "N is", Num_Atoms
+        dQ = Q/Num_Atoms
+        print "dQ =", dQ
+        for Atom_Obj in Molecule.Atom_List:
+            if Atom_Obj.Charge != 0.0:
+                if Atom_Obj.Charge < 0.0:
+                    Atom_Obj.Charge -= dQ
+                    print "Adjusting Charge +"
+                if Atom_Obj.Charge > 0.0:
+                    Atom_Obj.Charge -= dQ
+                    print "Adjusting Charge -"
+        Q = 0.0
+        Num_Atoms = 0.0
+        for Atom_Obj in Molecule.Atom_List:
+            if Atom_Obj.Charge != 0.0:
+                Q += Atom_Obj.Charge
+                Num_Atoms += 1.0
+                                                
+        print "Total Charge on Molecule is", Q
 
 
     print "------------------------------------"
@@ -112,6 +140,8 @@ def Assign_OPLS(Molecule, ChelpG = True):
         for Bond_Obj in Molecule.Bond_List:
             if Bond_Obj.kb == 0:
                 print Bond_Obj.Bond_Master.OPLS_Class, Bond_Obj.Bond_Slave.OPLS_Class
+                # Set arbitrary value for bond constant
+                Bond_Obj.Kb = 300.0
 
 
     print "-------------------------------------"
@@ -138,7 +168,7 @@ def Assign_OPLS(Molecule, ChelpG = True):
         for Angle_Obj in Molecule.Angle_List:
             if Angle_Obj.ka == 0:
                 print Angle_Obj.Angle_Master.OPLS_Class, Angle_Obj.Angle_Slave1.OPLS_Class, Angle_Obj.Angle_Slave2.OPLS_Class
-
+                Angle_Obj.ka = 35.0
 
     print "-------------------------------------"
     print "Finding Dihedrals"
@@ -173,7 +203,7 @@ def Assign_OPLS(Molecule, ChelpG = True):
         for Dihedral_Obj in Molecule.Dihedral_List:
             if Dihedral_Obj.Dihedral_ID == 0:
                 print Dihedral_Obj.Dihedral_Slave1.OPLS_Class, Dihedral_Obj.Dihedral_Master1.OPLS_Class, Dihedral_Obj.Dihedral_Master2.OPLS_Class, Dihedral_Obj.Dihedral_Slave2.OPLS_Class
-
+                print Dihedral_Obj.Dihedral_Slave1.Atom_ID, Dihedral_Obj.Dihedral_Master1.Atom_ID, Dihedral_Obj.Dihedral_Master2.Atom_ID, Dihedral_Obj.Dihedral_Slave2.Atom_ID
     print "Finding Improper interactions (Aromatic Carbons OPLS_CLASS=48)"
     i = 0
     for Atom_Obj in Molecule.Atom_List:

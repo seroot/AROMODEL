@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="Aro_L_{Sim_Name}"
+#SBATCH --job-name="{Sim_Name}"
 #SBATCH --output="job.%j.%N.out"
 #SBATCH --partition=compute
 #SBATCH --nodes={Nodes}
@@ -10,5 +10,5 @@ module load lammps
 cd {path}
 export OMP_NUM_THREADS=1
 
-ibrun -np {NProcs} lammps < in.{Sim_Name} > log.init_{Sim_Name}
+ibrun -np {NProcs} lammps < in.{Sim_Name} > log.{Sim_Name}
 

@@ -1,9 +1,13 @@
-import Atom
-import Molecule
-import OPLS
-import System
-import sys
-import DA_Polymer
+#!/usr/bin/python
+
+
+
+import /Users/seroot/Desktop/Research/AROMODEL/Atom
+import /Users/seroot/Desktop/Research/AROMODEL/Molecule
+import /Users/seroot/Desktop/Research/AROMODEL/OPLS
+import /Users/seroot/Desktop/Research/AROMODEL/System
+import /Users/seroot/Desktop/Research/AROMODEL/sys
+import /Users/seroot/Desktop/Research/AROMODEL/DA_Polymer
 
 def main():
     Script, File_Name, N = sys.argv

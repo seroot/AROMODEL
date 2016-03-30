@@ -2,6 +2,7 @@
 
 import Molecule
 import random
+import numpy as np
 from copy import deepcopy
 import os
 import subprocess
@@ -15,7 +16,7 @@ class System(object):
     """
     Class defining an MD system for simulation with LAMMPS
     instance variables:
-        Molecule_List = List of Molecule objects ( d
+        Molecule_List = List of Molecule objects
         Composition_List = List of integers defining the number of each molecule type in the system
         Box_Size = float (Angstrom)
         Atom_Params = [[Mass, Sigma, Epsilon]] List of floats
@@ -35,6 +36,10 @@ class System(object):
         self.Atom_Params, self.Bond_Params, self.Angle_Params, self.Dihedral_Params, self.Improper_Params = Molecule.Assign_Lammps(Moltemp_List)
         self.Composition_List = Composition_List
         self.Box_Size = Box_Size
+        Num_Mol = 0
+        for Comp in self.Composition_List:
+            Num_Mol += Comp
+        print "Number of Molecules = ", Num_Mol
         self.Molecule_List = []
         self.Current_Restart = ""
         self.Temperature = 800
@@ -50,36 +55,77 @@ class System(object):
             for j in range(self.Composition_List[i]):
                 Temp_Mol = deepcopy(Molecule_Obj)
                 #Temp_Mol = Molecule_Obj
-                Temp_Mol.COM += [random.random()*self.Box_Size, random.random()*self.Box_Size, random.random()*self.Box_Size]
+                """
+                Temp_Mol.COM = np.asarray([random.random()*self.Box_Size, random.random()*self.Box_Size, random.random()*self.Box_Size], dtype = float)
                 Temp_Mol.Mol_ID = k
                 k += 1
                 Temp_Mol.Adjust_COM()
                 self.Molecule_List.append(Temp_Mol)
+                """
+                
+                Deposited = False
+                while not Deposited:
+                    
+                    Temp_Mol.COM = np.asarray([random.random()*self.Box_Size, random.random()*self.Box_Size, random.random()*self.Box_Size], dtype = float)
+                    Temp_Mol.Mol_ID = k
+                    
+                    
+                    
+                    if len(self.Molecule_List) == 0:
+                        Temp_Mol.Adjust_COM()
+                        print "No Overlap"
+                        self.Molecule_List.append(Temp_Mol)
+                        Deposited = True
+                        k+= 1
+                    
+                
+                    e = 0
+                    for Mol_Obj in self.Molecule_List:
+                        Distance = np.linalg.norm(Temp_Mol.COM - Mol_Obj.COM)
+                        if Distance > 30:
+                            e += 1
+
+                        else:
+                            print "Overlap"
+                            print Distance
+                            break
+
+        
+                    if e == len(self.Molecule_List):
+                        Temp_Mol.Adjust_COM()
+                        self.Molecule_List.append(Temp_Mol)
+                        print "Depositing", j
+                        Deposited = True
+                        k += 1
+                    else:
+                        print "Didn't Deposit"
+                
+        
             i += 1
         
     
-        Q = 0
+        Q = 0.0
         Num_Atoms = 0
         for Mol_Obj in self.Molecule_List:
             for Atom_Obj in Mol_Obj.Atom_List:
                 Q += Atom_Obj.Charge
-                Num_Atoms += 1.0
+                if Atom_Obj.Charge != 0.0:
+                    Num_Atoms += 1.0
         print "The total charge of the system is ", Q
         
-        
-        dQ = Q/Num_Atoms
+        dQ = abs(Q/Num_Atoms)
         print "dQ =", dQ
 
         for Mol_Obj in self.Molecule_List:
             for Atom_Obj in Mol_Obj.Atom_List:
                 if Atom_Obj.Charge < 0.0:
-                    Atom_Obj.Charge += dQ
+                    Atom_Obj.Charge -= dQ
                 if Atom_Obj.Charge > 0.0:
                     Atom_Obj.Charge -= dQ
     
         for Molecule_Obj in self.Molecule_List:
             print Molecule_Obj.Mol_ID, Molecule_Obj.Name, Molecule_Obj.COM
-
+        return
 
     def Write_LAMMPS_Data(self):
         """
@@ -225,12 +271,13 @@ class System(object):
         Need to do more benchmarks with current system --> good task for CJ
         """
         
-        NProcs = int(self.Num_Atoms/1000.)
+        NProcs = int(self.Num_Atoms/10000.)
+        NProcs = 24
         if NProcs > 48:
             GPU = True
         # Set up submit script
         if not GPU:
-            if NProcs < 24:
+            if NProcs <= 24:
                 sub_temp = Configure.Template_Path + "sub_Lammps"
                 submit = "sub_%s" % self.Name
                 with open(sub_temp) as f:
@@ -288,7 +335,7 @@ class System(object):
         self.Current_Restart = File_Out
         return
 
-    def Run_Lammps_NPT(self, GPU = False, Temp_Out = 0.0):
+    def Run_Lammps_NPT(self, GPU = False, Temp_Out = 0.0, time_steps = 1000000):
         """
             Function for running NPT dynamics for the system in lammps
             
@@ -301,6 +348,7 @@ class System(object):
         Sim_Name = NPT_In.split('.')[-1]
         if Temp_Out != 0.0:
             NPT_In += "_%d" % Temp_Out
+            Sim_Name = NPT_In.split('.')[-1]
             self.Temperature = Temp_Out
         if Temp_Out == 0.0:
             Temp_Out = Temp_In
@@ -308,13 +356,15 @@ class System(object):
 
         with open(NPT_Temp) as f:
             template = f.read()
-        s = template.format(Name = self.Name, count = count, Temp_In = Temp_In, Temp_Out = Temp_Out, Restart_In = self.Current_Restart, Restart_Out = New_Restart)
+        s = template.format(Name = self.Name, count = count, Temp_In = Temp_In, Temp_Out = Temp_Out, Restart_In = self.Current_Restart, Restart_Out = New_Restart, Steps = time_steps)
         with open(NPT_In,'w') as f:
             f.write(s)
+            #f.insert(33, 'fix def1 all print 100 "${temperature} ${volume} ${dens} ${Enthalpy}" append Thermo_{Temp_In}_{Temp_Out}.txt screen no')
         
         submit = Parallel.Write_Submit_Script( self.Num_Atoms, Sim_Name, self.Name)
         File_Out1 = 'log.%s' % Sim_Name
         File_Out = New_Restart
+        Traj_File = self.Name + "_%d.lammpstrj" % count
 
         # Copy over to Comet
         os.system( Configure.c2c % (submit, self.Name))
@@ -340,11 +390,26 @@ class System(object):
 
         os.system( 'rm %s' % File_Out)
         self.Current_Restart = File_Out
+        os.system( Configure.c2l % (self.Name,  Traj_File))
         return
 
 
 
 
+def Run_Glass_Transition(system, Interval, Ramp_Steps = 50000, Equil_Steps = 50000, T_End = 100):
+    T_init = system.Temperature
+    Range = T_init - T_End
+    Steps = Range/Interval
+    T_out = T_init
+    for i in range(Steps):
+        T_in = T_out
+        T_out = T_out - Interval
+        system.Run_Lammps_NPT(Temp_Out= T_out, Steps = Ramp_Steps)
+        system.Run_Lammps_NPT( Steps = Equil_Steps)
+        File_Out = "Thermo_%d_%d" % (T_in, T_out) + ".txt"
+        os.system( Configure.c2l % (self.Name, File_Out))
+
+    return
 
 
 

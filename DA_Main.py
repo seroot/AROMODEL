@@ -12,9 +12,9 @@ import os
 # and generates a polymer system
 
 def main():
-    Mult = 5
+    Script, Mult = sys.argv
     Density = 0.1
-    
+    Mult = int(Mult)
     File_List = glob.glob('data.*')
     print File_List
     Mol_Temp_List = []
@@ -27,7 +27,7 @@ def main():
         MW = Mol_Temp_List[i].MW
         i += 1
     Avogadro = 6.0221413e23
-    Comp_List = np.ones(i, dtype=int)
+    Comp_List = np.ones(i+1, dtype=int)
     Comp_List = Comp_List*Mult
     Total_Mols = float(i*Mult)/Avogadro
     Molar_Volume = MW/Density
@@ -42,7 +42,12 @@ def main():
     DA_System.Gen_Rand()
     DA_System.Write_LAMMPS_Data()
     DA_System.Run_Lammps_Init()
-    DA_System.Run_Lammps_NPT(800, GPU=True)
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT( Temp_Out= 600)
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
     
     
     """
