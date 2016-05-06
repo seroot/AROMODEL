@@ -9,6 +9,7 @@ import subprocess
 import time
 import Configure
 import Parallel
+import pickle
 # Class defining an MD system for simulation with LAMMPS
 
 
@@ -251,7 +252,7 @@ class System(object):
                     File.write('%d %d %d %d %d %d\n' % (Improper_Obj.System_ID, Improper_Obj.LAMMPS_Type, Improper_Obj.Improper_Master.System_ID, Improper_Obj.Improper_Slave1.System_ID, Improper_Obj.Improper_Slave2.System_ID, Improper_Obj.Improper_Slave3.System_ID))
                     i += 1
 
-    def Run_Lammps_Init(self, GPU = False):
+    def Run_Lammps_Init(self, Nodes = 1):
         cmd = "mkdir " + Configure.Comet_Path % self.Name
         subprocess.call(["ssh", Configure.Comet_Login, cmd])
         
@@ -270,41 +271,16 @@ class System(object):
         MPI + GPU: 4 GPU and 24 Processors --> Only use for >100K particles
         Need to do more benchmarks with current system --> good task for CJ
         """
-        
-        NProcs = int(self.Num_Atoms/10000.)
+        sub_temp = Configure.Template_Path + "sub_Lammps"
         NProcs = 24
-        if NProcs > 48:
-            GPU = True
-        # Set up submit script
-        if not GPU:
-            if NProcs <= 24:
-                sub_temp = Configure.Template_Path + "sub_Lammps"
-                submit = "sub_%s" % self.Name
-                with open(sub_temp) as f:
-                    template = f.read()
-                    s = template.format(Sim_Name = Sim_Name, path = Configure.Comet_Path % self.Name, NProcs = NProcs, Nodes=1, tpn = NProcs)
-                with open(submit,'w') as f:
-                    f.write(s)
-            if NProcs > 24 and NProcs < 48:
-                sub_temp = Configure.Template_Path + "sub_Lammps"
-                submit = "sub_%s" % self.Name
-                tpn = NProcs/2
-                NProcs = tpn*2
-                with open(sub_temp) as f:
-                    template = f.read()
-                    s = template.format(Sim_Name= Sim_Name, path = Configure.Comet_Path % self.Name, NProcs = NProcs, Nodes=2, tpn = tpn)
-                with open(submit,'w') as f:
-                    f.write(s)
-    
-        elif GPU:
-            sub_temp = Configure.Template_Path + "GPU_Sub"
-            submit = "GPU_sub_%s" % self.Name
-            with open(sub_temp) as f:
-                template = f.read()
-            s = template.format(Sim_Name = Sim_Name, path = Configure.Comet_Path % self.Name)
-            with open(submit,'w') as f:
-                f.write(s)
-            
+        submit = "sub_%s" % self.Name
+        with open(sub_temp) as f:
+            template = f.read()
+            s = template.format(Sim_Name = Sim_Name, path = Configure.Comet_Path % self.Name, NProcs = Nodes*NProcs, Nodes=Nodes, tpn = NProcs)
+        with open(submit,'w') as f:
+            f.write(s)
+        
+        
 
         File_Out1 = 'log.%s' % Sim_Name
         File_Out = 'restart.%s_800_1' % self.Name
@@ -335,7 +311,7 @@ class System(object):
         self.Current_Restart = File_Out
         return
 
-    def Run_Lammps_NPT(self, GPU = False, Temp_Out = 0.0, time_steps = 1000000):
+    def Run_Lammps_NPT(self, GPU = False, Temp_Out = 0.0, time_steps = 1000000, Nodes = 1):
         """
             Function for running NPT dynamics for the system in lammps
             
@@ -361,7 +337,16 @@ class System(object):
             f.write(s)
             #f.insert(33, 'fix def1 all print 100 "${temperature} ${volume} ${dens} ${Enthalpy}" append Thermo_{Temp_In}_{Temp_Out}.txt screen no')
         
-        submit = Parallel.Write_Submit_Script( self.Num_Atoms, Sim_Name, self.Name)
+        
+        sub_temp = Configure.Template_Path + "sub_Lammps"
+        NProcs = 24
+        submit = "sub_%s" % self.Name
+        with open(sub_temp) as f:
+            template = f.read()
+            s = template.format(Sim_Name = Sim_Name, path = Configure.Comet_Path % self.Name, NProcs = Nodes*NProcs, Nodes=Nodes, tpn = NProcs)
+        with open(submit,'w') as f:
+            f.write(s)
+
         File_Out1 = 'log.%s' % Sim_Name
         File_Out = New_Restart
         Traj_File = self.Name + "_%d.lammpstrj" % count
@@ -394,9 +379,69 @@ class System(object):
         return
 
 
+    def Run_Lammps_Strain(self, Restart_In, Restart_Out, Index, Nodes = 1):
+        " Function for running uniaxial straining simulations on the system in LAMMPS"
 
+        Strain_Temp = Configure.Template_Path + "in.strain_Temp"
+        Strain_In = "in.%s_strain_%s" % (self.Name, Index)
+        Sim_Name = Strain_In.split('.')[-1]
+        
+        # Prepare input script
+        with open(Strain_Temp) as f:
+            Template = f.read()
+        s = Template.format( Name= self.Name, index = Index, Restart_In= Restart_In, Restart_Out = Restart_Out)
+        with open(Strain_In, 'w') as f:
+            f.write(s)
 
-def Run_Glass_Transition(system, Interval, Ramp_Steps = 50000, Equil_Steps = 50000, T_End = 100):
+        # Prepare Submission Script
+        sub_temp = Configure.Template_Path + "sub_Lammps"
+        NProcs = 24
+        submit = "sub_%s_strain" % self.Name
+        with open(sub_temp) as f:
+            template = f.read()
+        s = template.format(Sim_Name = Sim_Name, path = Configure.Comet_Path % self.Name, NProcs = Nodes*NProcs, Nodes=Nodes, tpn = NProcs)
+        with open(submit,'w') as f:
+            f.write(s)
+
+        File_Out1 = 'log.%s' % Sim_Name
+        File_Out = Restart_Out
+        Traj_File1 = "Strain_Equil_%s_%d.lammpstrj" % (self.Name, Index)
+        Traj_File2 = "Strain_%s_%d.lammpstrj" % (self.Name, Index)
+        Strain_File1 = "%s_Strain_%d.txt" % (self.Name, Index)
+
+        # Copy over to Comet
+        os.system( Configure.c2c % (submit, self.Name))
+        os.system( Configure.c2c % (Strain_In, self.Name))
+        os.system( Configure.c2l % (self.Name, File_Out1))
+
+        try:
+            File = open(File_Out1,'r')
+        except:
+            subprocess.call(["ssh", Configure.Comet_Login, Configure.SBATCH % (self.Name, submit)])
+
+        Finished = False
+        i = 0
+        while not Finished:
+            os.system( Configure.c2l % (self.Name, File_Out))
+            try:
+                File = open(File_Out,'r')
+                Finished = True
+            except:
+                print "Sleeping process", i, "minutes"
+                time.sleep(600)
+                i += 10
+
+        os.system( 'rm %s' % File_Out)
+        self.Current_Restart = File_Out
+        os.system( Configure.c2l % (self.Name,  Traj_File1))
+        os.system( Configure.c2l % (self.Name,  Traj_File2))
+        os.system( Configure.c2l % (self.Name,  Strain_File1))
+        
+        
+        
+        return
+
+def Run_Glass_Transition(system, Interval, Ramp_Steps = 50000, Equil_Steps = 50000, T_End = 100, Nodes = 1):
     T_init = system.Temperature
     Range = T_init - T_End
     Steps = Range/Interval
@@ -404,12 +449,24 @@ def Run_Glass_Transition(system, Interval, Ramp_Steps = 50000, Equil_Steps = 500
     for i in range(Steps):
         T_in = T_out
         T_out = T_out - Interval
-        system.Run_Lammps_NPT(Temp_Out= T_out, Steps = Ramp_Steps)
-        system.Run_Lammps_NPT( Steps = Equil_Steps)
-        File_Out = "Thermo_%d_%d" % (T_in, T_out) + ".txt"
-        os.system( Configure.c2l % (self.Name, File_Out))
+        system.Run_Lammps_NPT(Temp_Out= T_out, time_steps = Ramp_Steps,Nodes=Nodes)
+        system.Run_Lammps_NPT( time_steps = Equil_Steps, Nodes=Nodes)
+        File_Out = "Thermo_%d_%d" % (T_out, T_out) + ".txt"
+        os.system( Configure.c2l % (system.Name, File_Out))
+    return
+
+
+def Uniaxial_Strain(system, Restart_In, steps = 20):
+    Restart_In_Temp = Restart_In
+    for i in range(steps):
+        index = i+1
+        Restart_Out = "restart." + system.Name + "_Strain_%d" % (i+1)
+        system.Run_Lammps_Strain(Restart_In_Temp, Restart_Out, index )
+        Restart_In_Temp = Restart_Out
 
     return
+
+
 
 
 

@@ -1,0 +1,102 @@
+# Lammps input file for running a straining simulation
+
+units    real    # angstroms,kCal/mol,Daltons,Kelvin
+atom_style	 full    # select column format for Atoms section
+pair_style	 lj/cut/coul/long 10.0 8.0	 # cutoffLJ cutoff_coulomb
+bond_style	 harmonic        #parameters needed: k_bond, r0
+angle_style	 harmonic        #parameters needed: k_theta, theta0
+dihedral_style   opls
+improper_style   cvff
+kspace_style     pppm 0.0001     # long-range electrostatics sum method
+pair_modify mix arithmetic	 #using Lorenz-Berthelot mixing rules
+dielectric 1.0
+special_bonds lj/coul 0 0 .5
+
+read_restart {Restart_In}
+
+# Define Variables
+variable tmp equal "lx"
+variable L0 equal ${{tmp}}
+variable Lx equal "lx"
+variable Ly equal "ly"
+variable Lz equal "lz"
+variable stressx equal "-pxx*.000101325"
+variable stressy equal "-pyy*.000101325"
+variable stressz equal "-pzz*0.000101325"
+
+
+thermo_style custom step temp lx ly lz pxx pyy pzz density etotal
+thermo 300
+reset_timestep 0
+timestep 1.5
+fix SH all shake 0.0001 20 0 m 1.008
+
+# Equilibrate
+fix 1 all npt temp 300 300 100 iso 0 0 1000 drag 2
+fix 2 all momentum 1 linear 1 1 1
+dump 1 all custom 10000 Strain_Equil_{Name}_{index}.lammpstrj id type mol x y z ix iy iz
+fix def2 all print 1 "${{Lx}}  ${{Ly}}  ${{Lz}}  ${{stressx}}  ${{stressy}}  ${{stressz}}" file {Name}_Strain_{index}.txt screen no
+thermo_style custom step temp press etotal density vol enthalpy
+thermo 1000
+run 250000
+unfix 1
+unfix 2
+undump 1
+unfix def2
+
+# Strain
+fix 1 all npt temp 300 300 100 y 0 0 1000 z 0 0 1000
+fix 2 all deform 1 x erate 0.0000001 remap x units box
+dump 1 all custom 10000 Strain_{Name}_{index}.lammpstrj id type mol x y z ix iy iz
+run 100000
+unfix 1
+unfix 2
+undump 1
+
+
+# Equilibrate
+fix 1 all npt temp 300 300 100 y 0 0 1000 z 0 0 1000 
+fix def1 all print 1 "${{Lx}}  ${{Ly}}  ${{Lz}}  ${{stressx}}  ${{stressy}}  ${{stressz}}" append {Name}_Strain_{index}.txt screen no
+dump 1 all custom 10000 Strain_Equil_{Name}_{index}.lammpstrj id type mol x y z ix iy iz
+dump_modify 1 append yes
+run 250000
+write_restart restart.DA_Strained_1
+unfix 1
+unfix def1
+undump 1
+
+# Strain
+fix 1 all npt temp 300 300 100 y 0 0 1000 z 0 0 1000
+fix 2 all deform 1 x erate 0.0000001 remap x units box
+dump 1 all custom 10000 Strain_{Name}_{index}.lammpstrj id type mol x y z ix iy iz
+dump_modify 1 append yes
+run 100000
+unfix 1
+unfix 2
+undump 1
+
+# Equilibrate
+fix 1 all npt temp 300 300 100 y 0 0 1000 z 0 0 1000 
+fix def1 all print 1 "${{Lx}}  ${{Ly}}  ${{Lz}}  ${{stressx}}  ${{stressy}}  ${{stressz}}" append {Name}_Strain_{index}.txt screen no
+dump 1 all custom 10000 Strain_Equil_{Name}_{index}.lammpstrj id type mol x y z ix iy iz
+dump_modify 1 append yes
+run 250000
+write_restart restart.DA_Strained_1
+unfix 1
+unfix def1
+undump 1
+
+# Strain
+fix 1 all npt temp 300 300 100 y 0 0 1000 z 0 0 1000
+fix 2 all deform 1 x erate 0.0000001 remap x units box
+dump 1 all custom 10000 Strain_{Name}_{index}.lammpstrj id type mol x y z ix iy iz
+dump_modify 1 append yes
+run 100000
+unfix 1
+unfix 2
+undump 1
+
+write_restart {Restart_Out}
+
+
+

@@ -35,7 +35,7 @@ undump 1
 timestep 1.5
 minimize 1.0e-4 1.0e-6 100 1000
 fix 3 all shake 0.0001 20 0 m 1.008
-fix 0 all langevin 300 800 1800 43294
+fix 0 all langevin 300 300 3800 43294
 fix 1 all nph iso 1 1 1000     # note the chain group
 fix 2 all momentum 1 linear 1 1 1
 

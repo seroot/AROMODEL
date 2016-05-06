@@ -2,7 +2,7 @@
 
 import Configure
 
-def Write_Submit_Script(Num_Atoms, Sim_Name, Name, GPU=False):
+def Write_Submit_Script(Num_Atoms, Sim_Name, Name, GPU = False):
     NProcs = int(Num_Atoms/1000.)
     NProcs = 24
     if NProcs > 48:

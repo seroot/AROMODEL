@@ -127,6 +127,10 @@ def Find_OPLS_ID(Atom, Fullerene):
                 # 1-methylimidazole
                 Atom.OPLS_Type = 603
                 Atom.OPLS_Class = 13
+            elif Temp_Bond_List == ['H','H','H', 'H']:
+                # 1-methylimidazole
+                Atom.OPLS_Type = 83
+                Atom.OPLS_Class = 13
                     
                     
 

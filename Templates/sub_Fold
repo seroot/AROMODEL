@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name="{Sim_Name}"
+#SBATCH --output="job.%j.%N.out"
+#SBATCH --partition=shared
+#SBATCH --nodes={Nodes}
+#SBATCH --ntasks-per-node={tpn}
+#SBATCH -t 48:00:00
+#SBATCH -A csd467
+module load lammps
+cd {path}
+export OMP_NUM_THREADS=1
+
+ibrun -np {NProcs} lammps < in.{Sim_Name} > log.{Sim_Name}
+

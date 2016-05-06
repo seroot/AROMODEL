@@ -35,7 +35,9 @@ class DA_Polymer(object):
         MOL_ID = ID Number for molecule
         unConverged = Flag for bypassing Orca convergence (Default = False)
         """
-    def __init__(self, Filename):
+    def __init__(self, Filename, Anneal=False):
+        
+        
         self.Name = Filename.split('.')[1].split('_')[0]
         File = open(Filename,'r')
         File_Lines = File.readlines()
@@ -249,10 +251,6 @@ class DA_Polymer(object):
             
             Atom_Obj.Position += self.COM
         return
-
-
-
-
 
 
 

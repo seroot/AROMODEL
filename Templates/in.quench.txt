@@ -1,0 +1,55 @@
+units    real    # angstroms,kCal/mol,Daltons,Kelvin
+atom_style       full    # select column format for Atoms section
+pair_style       lj/cut/coul/long 10.0 8.0       # cutoffLJ cutoff_coulomb
+bond_style       harmonic        #parameters needed: k_bond, r0
+angle_style      harmonic        #parameters needed: k_theta, theta0
+dihedral_style   opls
+improper_style   cvff
+special_bonds lj/coul 0 0 .5
+kspace_style     pppm 0.0001     # long-range electrostatics sum method
+pair_modify mix arithmetic       #using Lorenz-Berthelot mixing rules
+
+
+# ----------------- Atom Definition Section --------------------
+
+read_data {Data_In}
+
+timestep 1.5
+thermo 1000
+thermo_style custom temp press vol etotal ke pe ebond eangle edihed eimp evdwl ecoul elong
+neigh_modify delay 0 every 1 check yes page 1000000 one 100000
+run_style verlet
+
+#SIMULATED ANNEALING (Langevin at 800.0K)
+velocity all create 800.0 {rand}
+fix 1 all nve
+fix 2 all langevin 800.0 800.0 3800.0 85360951
+fix 10 all shake 0.0001 20 0 m 1.008
+run 1000000
+unfix 1
+unfix 2
+unfix 10
+
+#COOLING (Langevin dynamics from 800.0K to 300.0K)
+fix 3 all nve
+fix 4 all langevin 800.0 300.0 3800.0 67594845
+fix 11 all shake 0.0001 20 0 m 1.008
+run 5000000
+unfix 3
+unfix 4
+unfix 11
+write_data {Data_Out}
+
+#SAMPLING (Langevin at 300.0K)
+dump 3 all atom 25000 sample.dump
+fix 5 all nve
+fix 6 all langevin 300.0 300.0 3800.0 74201151
+fix 12 all shake 0.0001 20 0 m 1.008
+run 10000000
+write_data {Data_Out}_2
+
+unfix 5
+unfix 6
+unfix 12
+
+#END OF RUN SECTION #
