@@ -17,7 +17,7 @@ dielectric 1.0
 timestep 1.5
 thermo 1000
 thermo_style custom step temp density etotal ke pe ebond eangle edihed eimp evdwl ecoul elong vol enthalpy
-neighbor 15.0 bin
+neighbor 10.0 bin
 neigh_modify delay 0 every 100 check no page 1000000 one 100000
 run_style verlet
 

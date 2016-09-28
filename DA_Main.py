@@ -45,12 +45,12 @@ def main():
     DA_System.Gen_Rand()
     DA_System.Write_LAMMPS_Data()
     DA_System.Run_Lammps_Init()
-    DA_System.Temperature = 300
-
-    DA_System.Run_Lammps_NPT()
-    DA_System.Run_Lammps_NPT()
     
-    #System.Run_Glass_Transition(DA_System, 20, Ramp_Steps = 100000, Equil_Steps = 100000, T_End = 600)
+    DA_System.Temperature = 300
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT() 
+    System.Run_Glass_Transition(DA_System, 20, Ramp_Steps = 1000000, Equil_Steps = 1000000, T_End = 600)
     
     
     """

@@ -14,8 +14,10 @@ import Atom
 import Bond
 import Angle
 import Dihedral
+import Ring
 import Configure
-
+import matplotlib.pyplot as plt
+import Lammps
 
 class Molecule(object):
     """
@@ -28,6 +30,7 @@ class Molecule(object):
         Angle_List[Num_Angles] = list of angle objects
         Dihedral_List[Num_Dihedrals] = list of Dihedral objects
         Improper_List[Num_Impropers] = list of Improper objects
+        Ring_List[Num_Rings] = list of Ring objects
         COM = Center of Mass
         MOL_ID = ID Number for molecule
         UnConverged = Flag for bypassing Orca convergence (Default = False)
@@ -45,6 +48,7 @@ class Molecule(object):
         self.Angle_List = []
         self.Dihedral_List = []
         self.Improper_List = []
+        self.Ring_List = []
         self.MW = 0.0
         self.COM = np.zeros(3,float)
         self.Mol_ID = 0
@@ -149,7 +153,7 @@ class Molecule(object):
                 try:
                     File = open(File_Out,'r')
                 except:
-                    os.system('orca %s > %s' %(File_Name, File_Out)) # Run Orca Job
+                    os.system('/usr/local/share/orca_3_0_0_macosx_openmpi165/orca %s > %s' %(File_Name, File_Out)) # Run Orca Job
             
             
             else:
@@ -322,29 +326,45 @@ class Molecule(object):
             print Atom_Obj.Atom_ID, Atom_Obj.Element, Atom_Obj.Position, sorted([ Atomobj.Element for Atomobj in Atom_Obj.Bond_List ])
         print "----------------------------------"
 
+        
+        # Find all the ring units in the molecule and add them to the ring list
+        self.Ring_List = Ring.create_rings(self.Atom_List)
+        
         return
 
 
 
-    def Scan_Dihedrals(self, Dihedral_Scan_List):
+    def Scan_Dihedrals(self, Dihedral_Scan_List, local = False):
         i = 0
         for Dihedral_Angle in Dihedral_Scan_List:
             i += 1
+            print Dihedral_Angle
+            print self.Dihedral_List
+            j = 0
             for Dihedral_Obj in self.Dihedral_List:
                 Compare = [ Dihedral_Obj.Dihedral_Slave1.Atom_ID, Dihedral_Obj.Dihedral_Master1.Atom_ID, Dihedral_Obj.Dihedral_Master2.Atom_ID, Dihedral_Obj.Dihedral_Slave2.Atom_ID]
                 print Compare
-                if Compare == Dihedral_Angle:
-                    print "Found Dihedral, Dihedral ID = ", Dihedral_Obj.Dihedral_Eq
+                if sorted(Compare) == sorted(Dihedral_Angle):
+                    print "Found Dihedral, Dihedral ID = ", j
                     Dihedral_Eq = Dihedral_Obj.Dihedral_Eq
+                    Dihedral_Index = j
+                j += 1
+        
+            print Dihedral_Index
             # Write Orca Input File
             File_Name = self.Name + "_Dih_%d.inp" % i
             File = open(File_Name, 'w')
             File.write('! RKS B3LYP 6-31+G** NormalSCF Opt NOSOSCF CHELPG PAL8\n\n')
+            File.write('%scf MaxIter 500 end\n')
             File.write('%geom Scan\n')
             if abs(Dihedral_Eq) <= 180.0 and abs(Dihedral_Eq) >=170:
                 File.write('\tD %d %d %d %d = %.1f, %.1f, 37\n' % ( Dihedral_Angle[0]-1, Dihedral_Angle[1]-1, Dihedral_Angle[2]-1, Dihedral_Angle[3]-1, Dihedral_Eq, -Dihedral_Eq))
+                Dihedral_Angles = np.arange(-180,190,10)
+                print Dihedral_Angles
             elif abs(Dihedral_Eq) >= 0.0 and abs(Dihedral_Eq) <= 10.0:
                 File.write('\tD %d %d %d %d = %.1f, %.1f, 37\n' % ( Dihedral_Angle[0]-1, Dihedral_Angle[1]-1, Dihedral_Angle[2]-1, Dihedral_Angle[3]-1, Dihedral_Eq, 360.0))
+                Dihedral_Angles = np.arange(0,370,10)
+                print Dihedral_Angles
             else:
                 print "Error: Edit Molecule.py/Scan_Dihedrals()"
                 time.sleep(600)
@@ -359,64 +379,80 @@ class Molecule(object):
             File_Out = self.Name + "_Dih_%d.out" % i
             Dihedral_Name = self.Name + "_Dih_%d" % i
 
+            if local:
+                #Run subprocess on local machine
+                print "Runnning Orca on local machine"
+                os.system('pwd')
+                os.system('cd Orca')
+                os.system('mkdir ./%s' % Dihedral_Name)
+                os.system('mv %s ./%s' % (File_Name, Dihedral_Name))
+                os.system('cp %s ./%s' % (File_Out, Dihedral_Name))
+                os.chdir('./%s' % Dihedral_Name )
+                try:
+                    File = open(File_Out,'r')
+                except:
+                    os.system('/usr/local/share/orca_3_0_0_macosx_openmpi165/orca %s > %s' %(File_Name, File_Out)) # Run Orca Job
 
-            print "Running Orca Dihedral Scan %d on Comet" % i
-            cmd = "mkdir " + Configure.Comet_Path % self.Name + "/Dihedral_%d" % i
-            subprocess.call(["ssh", Configure.Comet_Login, cmd])
-            subtemp = Configure.Template_Path + "sub_orca_temp"
-            submit = "submit_orca"
-            Path = Configure.Comet_Path % self.Name + "/Dihedral_%d" % i
-            # Write submit script
-            with open(subtemp) as f:
-                template = f.read()
-                s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name = Dihedral_Name )
-            with open(submit ,"w") as f:
-                f.write(s)
+            else:
+                print "Running Orca Dihedral Scan %d on Comet" % i
+                cmd = "mkdir " + Configure.Comet_Path % self.Name + "/Dihedral_%d" % i
+                subprocess.call(["ssh", Configure.Comet_Login, cmd])
+                subtemp = Configure.Template_Path + "sub_orca_temp"
+                submit = "submit_orca"
+                Path = Configure.Comet_Path % self.Name + "/Dihedral_%d" % i
+                # Write submit script
+                with open(subtemp) as f:
+                    template = f.read()
+                    s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name = Dihedral_Name )
+                with open(submit ,"w") as f:
+                    f.write(s)
             
-            # Copy Files over  to Comet
-            Dihedral_Path = self.Name + "/Dihedral_%d" % i
+                # Copy Files over  to Comet
+                Dihedral_Path = self.Name + "/Dihedral_%d" % i
             
-            os.system( Configure.c2c % (submit, Dihedral_Path))
-            os.system( Configure.c2c % (File_Name, Dihedral_Path))
-            # Run job
-            os.system( Configure.c2l % (Dihedral_Path, File_Out))
-            try:
-                File = open(File_Out,'r')
-            except:
-                subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (Dihedral_Path, submit)])
-            
-            
-            # Continuously check to see if job is finished
-            j = 0
-            while not Finished:
+                os.system( Configure.c2c % (submit, Dihedral_Path))
+                os.system( Configure.c2c % (File_Name, Dihedral_Path))
+                # Run job
                 os.system( Configure.c2l % (Dihedral_Path, File_Out))
                 try:
                     File = open(File_Out,'r')
-                    File_Lines = File.readlines()
-                    print File_Lines[-1]
-                    if File_Lines[-1].split(' ')[0] == "TOTAL" or self.UnConverged:
-                        Finished = True
-                    else:
-                        print "Not Finished"
-                        j += 10
-                        print "Sleeping process", j, "Minutes"
-                        time.sleep(600)
                 except:
-                    print "Sleeping process", j, "miniutes"
-                    time.sleep(600)
-                    j  += 10
-
-            try:
-                os.mkdir("Dihedral_%d" % i)
-                os.chdir("Dihedral_%d" % i)
-            except:
-                os.chdir("Dihedral_%d" % i)
+                    subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (Dihedral_Path, submit)])
             
-            # Copy XYZ trajectory to working directory
+            
+                # Continuously check to see if job is finished
+                j = 0
+                while not Finished:
+                    os.system( Configure.c2l % (Dihedral_Path, File_Out))
+                    try:
+                        File = open(File_Out,'r')
+                        File_Lines = File.readlines()
+                        print File_Lines[-1]
+                        if File_Lines[-1].split(' ')[0] == "TOTAL" or self.UnConverged:
+                            Finished = True
+                        else:
+                            print "Not Finished"
+                            j += 10
+                            print "Sleeping process", j, "Minutes"
+                            time.sleep(600)
+                    except:
+                        print "Sleeping process", j, "miniutes"
+                        time.sleep(600)
+                        j  += 10
+
+                try:
+                    os.mkdir("Dihedral_%d" % i)
+                    os.chdir("Dihedral_%d" % i)
+                except:
+                    os.chdir("Dihedral_%d" % i)
+            
+                # Copy XYZ trajectory to working directory
+                XYZ_File = self.Name +  "_Dih_%d" % i + ".*.xyz"
+            
+
+                os.system( Configure.c2l % (Dihedral_Path, XYZ_File))
+            
             XYZ_File = self.Name +  "_Dih_%d" % i + ".*.xyz"
-            
-
-            os.system( Configure.c2l % (Dihedral_Path, XYZ_File))
             File_List = glob.glob(XYZ_File)
             Traj_File = open('Traj.xyz', 'w')
             # Concatenate files
@@ -435,47 +471,113 @@ class Molecule(object):
             Traj_File.close()
             MP2_Name = "MP2"
             
-            # Prepare new submit script
-            with open(subtemp) as f:
-                template = f.read()
-                s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name= MP2_Name)
-            with open(submit, "w") as f:
-                f.write(s)
+            if local == True:
+                print "Running MP2 on local machine"
+                os.system('pwd')
+                os.system('cp %s ./' % (Configure.Template_Path + "MP2.inp"))
+                File_Name = "MP2.inp"
+                File_Out = "MP2.out"
+                try:
+                    File = open(File_Out,'r')
+                    print "Found File"
+                except:
+                    print "submitted job"
+                    os.system('/usr/local/share/orca_3_0_0_macosx_openmpi165/orca %s > %s' %(File_Name, File_Out)) # Run Orca Job
+                    
+            else:
+                # Prepare new submit script
+                with open(subtemp) as f:
+                    template = f.read()
+                    s = template.format(Comet_Path=Path, Orca_Path = Configure.Orca_Path, name= MP2_Name)
+                with open(submit, "w") as f:
+                    f.write(s)
 
-            # Copy over to comet
-            os.system( Configure.c2c % (submit, Dihedral_Path))
-            os.system( Configure.c2c % ("Traj.xyz", Dihedral_Path))
-            os.system( Configure.c2c % (Configure.Template_Path + "MP2.inp", Dihedral_Path))
-            File_Out = "MP2.out"
-            os.system( Configure.c2l % (Dihedral_Path, File_Out))
-
-            # Run Job
-            try:
-                File = open(File_Out,'r')
-            except:
-                subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (Dihedral_Path, submit)])
-
-            # Continuously check to see if job is finished
-            j = 0
-            while not Finished:
+                # Copy over to comet
+                os.system( Configure.c2c % (submit, Dihedral_Path))
+                os.system( Configure.c2c % ("Traj.xyz", Dihedral_Path))
+                os.system( Configure.c2c % (Configure.Template_Path + "MP2.inp", Dihedral_Path))
+                File_Out = "MP2.out"
                 os.system( Configure.c2l % (Dihedral_Path, File_Out))
-            try:
-                File = open(File_Out,'r')
-                File_Lines = File.readlines()
-                print File_Lines[-1]
-                if File_Lines[-1].split(' ')[0] == "TOTAL" or self.UnConverged:
-                        Finished = True
-                else:
-                    print "Not Finished"
-                    j += 10
-                    print "Sleeping process", j, "Minutes"
-                    time.sleep(600)
-            except:
-                print "Sleeping process", j, "miniutes"
-                time.sleep(600)
-                j  += 10
+
+                # Run Job
+                try:
+                    File = open(File_Out,'r')
+                except:
+                    subprocess.call(["ssh",Configure.Comet_Login, Configure.SBATCH % (Dihedral_Path, submit)])
+
+                # Continuously check to see if job is finished
+                j = 0
+                Finished = False
+                while not Finished:
+                    os.system( Configure.c2l % (Dihedral_Path, File_Out))
+                    try:
+                        File = open(File_Out,'r')
+                        File_Lines = File.readlines()
+                        print File_Lines[-1]
+                        if File_Lines[-1].split(' ')[0] == "TOTAL":
+                            print "Found Last Line"
+                            Finished = True
+                        else:
+                            print "Not Finished"
+                            j += 10
+                            print "Sleeping process", j, "Minutes"
+                            time.sleep(600)
+                    except:
+                        print "Sleeping process", j, "miniutes"
+                        time.sleep(600)
+                        j  += 10
             
             #Copy back over output and store the results for the MP2 relaxed energy scan
+            
+            File = open("MP2.out", 'r')
+            Found = False
+            Dihedral_MP2_Energy = np.zeros(37, dtype=float)
+            i = 0
+            for line in File:
+                print line.split()
+                if Found and i < 37:
+                    Dihedral_MP2_Energy[i] = float(line.split()[1])
+                    print Dihedral_MP2_Energy
+                    i += 1
+            
+                
+                if line.split() == ['The', 'Calculated', 'Surface', 'using', 'the', 'MP2', 'energy']:
+                    Found = True
+                
+
+            print Dihedral_MP2_Energy
+            Dihedral_MP2_Energy = (Dihedral_MP2_Energy - Dihedral_MP2_Energy[0])*630
+            OPLS_Energy = Lammps.Run_Dihedral_Scan(self, File_List)
+            
+            """
+            plt.xlim((Dihedral_Angles[0], Dihedral_Angles[-1]))
+            plt.plot(Dihedral_Angles, Dihedral_MP2_Energy, label = "MP2")
+            
+            plt.ylim((min(Dihedral_MP2_Energy), max(Dihedral_MP2_Energy)))
+            plt.ylabel('Relative Energy (kcal/mol)')
+            plt.xlabel('Dihedral Angle (Degrees)')
+            plt.legend()
+            plt.show()
+            
+            plt.plot(Dihedral_Angles, OPLS_Energy, label = "OPLS")
+            plt.ylabel('Relative Energy (kcal/mol)')
+            plt.xlabel('Dihedral Angle (Degrees)')
+            plt.xlim((Dihedral_Angles[0], Dihedral_Angles[-1]))
+            plt.legend()
+            plt.show()
+            """
+            Dihedral_Corrected = Dihedral_MP2_Energy - OPLS_Energy
+            Dihedral_Radians = Dihedral_Angles*(3.14/180.0)
+            self.Dihedral_List[Dihedral_Index].Fit_Parameters( Dihedral_Corrected, Dihedral_Radians)
+          
+            """
+            plt.plot(Dihedral_Angles, OPLS_Energy, label = "OPLS")
+            plt.ylabel('Relative Energy (kcal/mol)')
+            plt.xlabel('Dihedral Angle (Degrees)')
+            plt.xlim((Dihedral_Angles[0], Dihedral_Angles[-1]))
+            plt.legend()
+            plt.show()
+            """
 
             os.chdir("..")
                 

@@ -21,7 +21,7 @@ def main():
     Solvent_System = System.System([Solvent], [N], 200.0, Name)
     #Solvent_System.Gen_Rand()
     Solvent_System.Write_LAMMPS_Data()
-    Solvent_System.Run_Lammps_Init()
+    #Solvent_System.Run_Lammps_Init()
     
 
 if __name__=='__main__': main()

@@ -41,18 +41,18 @@ def main():
     DA_System = System.System(Mol_Temp_List, Comp_List, Box_Length, Name)
     DA_System.Gen_Rand()
     DA_System.Write_LAMMPS_Data()
-    Restart_In = 'restart.%s_%d_%d' % (DA_System.Name, 300, 37)
-    System.Uniaxial_Strain(DA_System, Restart_In)
-    
-    """
-    Solvent = Molecule.Molecule(File_Name)
-    Solvent.Set_Up_FF(run_orca=True)
-    OPLS.Assign_OPLS(Solvent, ChelpG = False)
-    Solvent_System = System.System([Solvent], [N], 50.0)
-    Solvent_System.Gen_Rand()
-    Solvent_System.Write_LAMMPS_Data()
-    Solvent_System.Run_Lammps_Init()
-    """
+    DA_System.Current_Restart = 'restart.%s_%d_%d' % (DA_System.Name, 420, 25)
+    DA_System.Temperature = 420
+    DA_System.Run_Lammps_NPT(Temp_Out = 420.0)
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    #System.Uniaxial_Strain(DA_System, Restart_In, steps = 50)
+
 
 if __name__=='__main__': main()
 

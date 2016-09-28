@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
 #SBATCH -t 48:00:00
-#SBATCH -A csd467
+#SBATCH -A csd497
 module load lammps
 cd {Comet_Path}
 export OMP_NUM_THREADS=1

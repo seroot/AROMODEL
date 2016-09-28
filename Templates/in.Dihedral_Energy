@@ -1,0 +1,16 @@
+# created by CMLParser
+
+units real
+atom_style full
+boundary p p p
+bond_style harmonic
+dielectric 9.8
+pair_style lj/cut/coul/long 15.0
+angle_style harmonic
+dihedral_style opls
+special_bonds lj/coul 0 0 .5
+improper_style cvff
+kspace_style ewald 1e-4
+read_data Dihedral.data
+thermo_style custom pe etotal
+run 0

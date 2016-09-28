@@ -3,10 +3,24 @@
 # Open relevant modules
 
 import numpy
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
+
+def Fourier_Series(Phi, A1, A2, A3, A4):
+    return 0.5*(A1*(1+numpy.cos(Phi)) + A2*(1-numpy.cos(2.0*Phi)) + A3*(1+numpy.cos(3.0*Phi)) + A4*(1-numpy.cos(4.0*Phi)))
+
+def Fourier_Series_Val(Phi, Pop):
+    return 0.5*(Pop[0]*(1+numpy.cos(Phi)) + Pop[1]*(1-numpy.cos(2.0*Phi)) + Pop[2]*(1+numpy.cos(3.0*Phi)) + Pop[3]*(1-numpy.cos(4.0*Phi)))
+
+def Multi_Harmonic(Phi, A1, A2, A3, A4, A5):
+    return A1 + A2*numpy.cos(Phi) + A3*numpy.cos(Phi)**2 + A4*numpy.cos(Phi)**3 + A5*numpy.cos(Phi)**4
+
+def Multi_Harmonic_Val(Phi, Pop):
+    return Pop[0] + Pop[1]*numpy.cos(Phi) + Pop[2]*numpy.cos(Phi)**2 + Pop[3]*numpy.cos(Phi)**3 + Pop[4]*numpy.cos(Phi)**4
 
 class Dihedral(object):
     """
-    Class defining an angle between 3 atom objects
+    Class defining a dihedral angle between 4 atom objects
     Instance Variables
         Type = int
         Dihedral_Master1 = Atom object
@@ -29,4 +43,23 @@ class Dihedral(object):
         self.System_ID = 0 # Assigned in System.Write_LAMMPS_Data()
         return
         
+
+    def Fit_Parameters(self, Dihedral_Energy, Dihedral_Angles):
+        Pop, Pco = curve_fit(Fourier_Series, Dihedral_Angles, Dihedral_Energy)
+        plt.plot(Dihedral_Angles, Dihedral_Energy, 'o', label= "MP2 Derived")
+        plt.plot(Dihedral_Angles, Fourier_Series_Val(Dihedral_Angles, Pop), '-', label="Fourier Fit")
+        plt.ylabel('Relative Energy (kcal/mol)', fontsize=25)
+        plt.xlabel('Dihedral Angle (Radians)', fontsize=25)
+        plt.xlim((Dihedral_Angles[0],Dihedral_Angles[-1]))
+        plt.axhline(y=0.0, linestyle='--')
+        plt.legend(frameon=False)
+        plt.savefig('MP2_Dihedral_%d.png' % self.Dihedral_ID)
+        plt.close()
+        self.Coeffs = Pop
+        print self.Coeffs
+        return
+
+
+
+
 

@@ -3,6 +3,8 @@ import numpy as np
 import Configure
 import subprocess
 import os
+from lammps import lammps
+import System
 
 def Run_Sim_Anneal( File_List, Name):
     
@@ -44,3 +46,42 @@ def Run_Sim_Anneal( File_List, Name):
         os.system( Configure.c2c % (Data_File, Name))
         subprocess.call(["ssh", Configure.Comet_Login, Configure.SBATCH % (Name, submit)])
     return
+
+
+def Run_Dihedral_Scan( Molecule, File_List):
+    Energy = []
+
+    for file in File_List:
+        file = open(file, 'r')
+        file = file.readlines()
+        i = 0
+        for line in file:
+            try:
+                line = line.split()
+                coords = np.array([float(line[1]), float(line[2]), float(line[3])])
+                Molecule.Atom_List[i].Position = coords
+                i += 1
+            except:
+                continue
+        D_Sys = System.System([Molecule], [1], 100.0, "Dihedral")
+        D_Sys.Gen_Rand()
+        D_Sys.Write_LAMMPS_Data( Dihedral=True)
+        os.system("cp %sin.Dihedral_Energy ./" % Configure.Template_Path)
+        lmp = lammps()
+        lmp.file("in.Dihedral_Energy")
+        Output_File = open("log.lammps", 'r')
+        Output_File = Output_File.readlines()
+        for Line in Output_File:
+            try:
+                if len(Line.split()) == 2 and float(Line.split()[0]) == float(Line.split()[1]):
+                    Energy.append(float(Line.split()[0]))
+            except:
+                continue
+
+    Energy = np.asarray(Energy)
+
+    return Energy- Energy[0]
+
+
+
+

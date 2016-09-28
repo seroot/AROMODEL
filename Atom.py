@@ -33,6 +33,7 @@ class Atom(object):
         #self.COM_Position = np.zeros(3,dtype=float)
         self.Image_Flags = np.zeros(3,dtype=int)
         self.Unwrapped_Position = np.zeros(3,dtype=float)
+        self.ring= False # Assigned in Ring.py
         return
 
 

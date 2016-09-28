@@ -83,7 +83,7 @@ class System(object):
                     e = 0
                     for Mol_Obj in self.Molecule_List:
                         Distance = np.linalg.norm(Temp_Mol.COM - Mol_Obj.COM)
-                        if Distance > 30:
+                        if Distance > 10:
                             e += 1
 
                         else:
@@ -128,11 +128,15 @@ class System(object):
             print Molecule_Obj.Mol_ID, Molecule_Obj.Name, Molecule_Obj.COM
         return
 
-    def Write_LAMMPS_Data(self):
+    def Write_LAMMPS_Data(self, Dihedral = False):
         """
         Function for writing LAMMPS data file 
         """
-        self.Data_File = self.Name + ".data"
+        if Dihedral:
+            self.Data_File = "Dihedral.data"
+        else:
+            self.Data_File = self.Name + ".data"
+
         File = open(self.Data_File, 'w')
         File.write('LAMMPS data file via System.Write_LAMMPS_Data()\n\n')
         
@@ -329,6 +333,7 @@ class System(object):
         if Temp_Out == 0.0:
             Temp_Out = Temp_In
         New_Restart = 'restart.%s_%d_%d' % (self.Name, Temp_Out, count)
+    
 
         with open(NPT_Temp) as f:
             template = f.read()
@@ -389,7 +394,7 @@ class System(object):
         # Prepare input script
         with open(Strain_Temp) as f:
             Template = f.read()
-        s = Template.format( Name= self.Name, index = Index, Restart_In= Restart_In, Restart_Out = Restart_Out)
+        s = Template.format( index = Index, Restart_In= Restart_In, Restart_Out = Restart_Out)
         with open(Strain_In, 'w') as f:
             f.write(s)
 
@@ -405,9 +410,8 @@ class System(object):
 
         File_Out1 = 'log.%s' % Sim_Name
         File_Out = Restart_Out
-        Traj_File1 = "Strain_Equil_%s_%d.lammpstrj" % (self.Name, Index)
-        Traj_File2 = "Strain_%s_%d.lammpstrj" % (self.Name, Index)
-        Strain_File1 = "%s_Strain_%d.txt" % (self.Name, Index)
+        Traj_File1 = "DAStrain_%d.lammpstrj" % Index
+        Strain_File1 = "SS_%d.txt" %  Index
 
         # Copy over to Comet
         os.system( Configure.c2c % (submit, self.Name))
@@ -434,7 +438,6 @@ class System(object):
         os.system( 'rm %s' % File_Out)
         self.Current_Restart = File_Out
         os.system( Configure.c2l % (self.Name,  Traj_File1))
-        os.system( Configure.c2l % (self.Name,  Traj_File2))
         os.system( Configure.c2l % (self.Name,  Strain_File1))
         
         
@@ -443,12 +446,12 @@ class System(object):
 
 def Run_Glass_Transition(system, Interval, Ramp_Steps = 50000, Equil_Steps = 50000, T_End = 100, Nodes = 1):
     T_init = system.Temperature
-    Range = T_init - T_End
+    Range = abs(T_init - T_End)
     Steps = Range/Interval
     T_out = T_init
     for i in range(Steps):
         T_in = T_out
-        T_out = T_out - Interval
+        T_out = T_out + Interval
         system.Run_Lammps_NPT(Temp_Out= T_out, time_steps = Ramp_Steps,Nodes=Nodes)
         system.Run_Lammps_NPT( time_steps = Equil_Steps, Nodes=Nodes)
         File_Out = "Thermo_%d_%d" % (T_out, T_out) + ".txt"

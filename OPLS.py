@@ -190,7 +190,7 @@ def Assign_OPLS(Molecule, ChelpG = True):
                 Dihedral_Obj.Coeffs[1] = float(D_OPLS[8])
                 Dihedral_Obj.Coeffs[2] = float(D_OPLS[11])
                 Dihedral_Obj.Dihedral_ID = i
-                #print "Check"
+
 
 
     if i == len(Molecule.Dihedral_List):
@@ -202,8 +202,11 @@ def Assign_OPLS(Molecule, ChelpG = True):
         Molecule.Missing_Dihedrals = len(Molecule.Dihedral_List) - i 
         for Dihedral_Obj in Molecule.Dihedral_List:
             if Dihedral_Obj.Dihedral_ID == 0:
+                i+=1
+                Dihedral_Obj.Dihedral_ID = i
                 print Dihedral_Obj.Dihedral_Slave1.OPLS_Class, Dihedral_Obj.Dihedral_Master1.OPLS_Class, Dihedral_Obj.Dihedral_Master2.OPLS_Class, Dihedral_Obj.Dihedral_Slave2.OPLS_Class
                 print Dihedral_Obj.Dihedral_Slave1.Atom_ID, Dihedral_Obj.Dihedral_Master1.Atom_ID, Dihedral_Obj.Dihedral_Master2.Atom_ID, Dihedral_Obj.Dihedral_Slave2.Atom_ID
+                
     print "Finding Improper interactions (Aromatic Carbons OPLS_CLASS=48)"
     i = 0
     for Atom_Obj in Molecule.Atom_List:
