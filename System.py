@@ -83,7 +83,7 @@ class System(object):
                     e = 0
                     for Mol_Obj in self.Molecule_List:
                         Distance = np.linalg.norm(Temp_Mol.COM - Mol_Obj.COM)
-                        if Distance > 10:
+                        if Distance > 40:
                             e += 1
 
                         else:
@@ -451,11 +451,12 @@ def Run_Glass_Transition(system, Interval, Ramp_Steps = 50000, Equil_Steps = 500
     T_out = T_init
     for i in range(Steps):
         T_in = T_out
-        T_out = T_out + Interval
-        system.Run_Lammps_NPT(Temp_Out= T_out, time_steps = Ramp_Steps,Nodes=Nodes)
+        T_out_n = T_out - Interval
+        system.Run_Lammps_NPT(Temp_Out= T_out_n, time_steps = Ramp_Steps,Nodes=Nodes)
         system.Run_Lammps_NPT( time_steps = Equil_Steps, Nodes=Nodes)
         File_Out = "Thermo_%d_%d" % (T_out, T_out) + ".txt"
         os.system( Configure.c2l % (system.Name, File_Out))
+        T_out = T_out_n
     return
 
 

@@ -19,7 +19,7 @@ import Configure
 import matplotlib.pyplot as plt
 import Lammps
 
-class Molecule(object):
+class Monomer(object):
     """
     Class defining a molecule
     instance variables (self) :
@@ -36,7 +36,7 @@ class Molecule(object):
         UnConverged = Flag for bypassing Orca convergence (Default = False)
     """
 
-    def __init__(self, File_Name):
+    def __init__(self, File_Name, end_groups, tangent_vector):
         File = open(File_Name,'r') # File_Name is the name of an .xyz file outputted by Avogadro
         File_Lines = File.readlines()
         
@@ -54,6 +54,7 @@ class Molecule(object):
         self.Mol_ID = 0
         self.Missing_Dihedrals = 0
         self.UnConverged = False # Unconverged Orca Optimization
+        self.end_groups = end_groups
         
         print "Setting up molecule"
         print "Molecule Name:", self.Name
@@ -98,7 +99,21 @@ class Molecule(object):
         
         self.COM -= self.COM
         print self.COM
+        # Set end groups of the monomer
+        print "End groups:", self.end_groups
+        for element in self.end_groups:
+            for index in element:
+                self.Atom_List[index-1].end_group = True
+                print self.Atom_List[index-1].Element, index
+                    
+        # Set the tangent vector
+        self.tangent_vector = self.Atom_List[tangent_vector[0]-1].Position - self.Atom_List[tangent_vector[1]-1].Position
+        print "Tangent Vector is:", self.tangent_vector, np.linalg.norm(self.tangent_vector)
+        
         return
+
+
+
 
     def Adjust_COM(self):
         # This adjusts the center of mass and gives the molecule a random orientation
@@ -324,8 +339,6 @@ class Molecule(object):
             # Finds OPLS Types and Classes
             print Atom_Obj.Atom_ID, Atom_Obj.Element, Atom_Obj.Position, sorted([ Atomobj.Element for Atomobj in Atom_Obj.Bond_List ])
         print "----------------------------------"
-
-        
         # Find all the ring units in the molecule and add them to the ring list
         self.Ring_List = Ring.create_rings(self.Atom_List)
         

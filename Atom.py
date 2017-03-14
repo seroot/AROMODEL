@@ -34,6 +34,7 @@ class Atom(object):
         self.Image_Flags = np.zeros(3,dtype=int)
         self.Unwrapped_Position = np.zeros(3,dtype=float)
         self.ring= False # Assigned in Ring.py
+        self.end_group = False
         return
 
 

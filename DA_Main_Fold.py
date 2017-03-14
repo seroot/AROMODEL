@@ -15,7 +15,7 @@ def main():
     Script, Mult = sys.argv
     Density = 0.01
     Mult = int(Mult)
-    File_List = glob.glob('*.data')
+    File_List = glob.glob('data.*')
     print len(File_List)
     print File_List
     Mol_Temp_List = []
@@ -46,22 +46,31 @@ def main():
     DA_System.Write_LAMMPS_Data()
     DA_System.Run_Lammps_Init()
     
-    DA_System.Temperature = 800
-    DA_System.Run_Lammps_NPT()
-    DA_System.Run_Lammps_NPT()
-    #System.Run_Glass_Transition(DA_System, -100, Ramp_Steps = 1000000, Equil_Steps = 1000000, T_End = 600)
+    DA_System.Temperature = 300
     DA_System.Run_Lammps_NPT()
     DA_System.Run_Lammps_NPT()
     DA_System.Run_Lammps_NPT()
-    DA_System.Temperature = 600
-    DA_System.Run_Lammps_NPT()
+    
+    System.Run_Glass_Transition(DA_System, 100, Ramp_Steps = 1000000, Equil_Steps = 1000000, T_End = 600)
     DA_System.Run_Lammps_NPT()
     DA_System.Run_Lammps_NPT()
     DA_System.Run_Lammps_NPT()
     DA_System.Run_Lammps_NPT()
     DA_System.Run_Lammps_NPT()
-    System.Run_Glass_Transition(DA_System, 20, Ramp_Steps = 100000, Equil_Steps = 100000, T_End = 100)
-
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    DA_System.Run_Lammps_NPT()
+    
+    """
+    Solvent = Molecule.Molecule(File_Name)
+    Solvent.Set_Up_FF(run_orca=True)
+    OPLS.Assign_OPLS(Solvent, ChelpG = False)
+    Solvent_System = System.System([Solvent], [N], 50.0)
+    Solvent_System.Gen_Rand()
+    Solvent_System.Write_LAMMPS_Data()
+    Solvent_System.Run_Lammps_Init()
+    """
 
 if __name__=='__main__': main()
 

@@ -30,7 +30,7 @@ variable        Enthalpy equal "enthalpy"
 run 0
 
 
-fix def1 all print 100 "${{temperature}} ${{volume}} ${{dens}} ${{Enthalpy}}" append Thermo_{Temp_In}_{Temp_Out}.txt screen no
+fix def1 all print 100 "${{temperature}} ${{volume}} ${{dens}} ${{Enthalpy}}" append Thermo_{Temp_In}_{Temp_Out}_{count}.txt screen no
 
 fix SH all shake 0.0001 20 0 m 1.008
 dump 1 all custom 100000 {Name}_{count}.lammpstrj id type mol x y z ix iy iz

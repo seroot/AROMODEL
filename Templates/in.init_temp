@@ -40,5 +40,5 @@ fix 1 all nph iso 1 1 1000     # note the chain group
 fix 2 all momentum 1 linear 1 1 1
 
 dump 2 all custom 10000 Condense_{System_Name}.lammpstrj id type mol xs ys zs vx vy vz
-run 1000000
+run 500000
 write_restart restart.{System_Name}_800_1
